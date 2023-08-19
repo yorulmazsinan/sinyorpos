@@ -3,7 +3,7 @@
 	"description": "E-CEO uygulamaları için geliştirilen POS paketi.",
 	"require": {
 		"php": ">=8.0",
-		"symfony/serializer": "^6.2"
+		"symfony/serializer": "^5.0"
 	},
 	"require-dev": {
 		"laravel/pint": "^1.6"
