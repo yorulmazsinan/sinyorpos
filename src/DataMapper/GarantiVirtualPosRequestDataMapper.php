@@ -399,7 +399,7 @@ class GarantiVirtualPosRequestDataMapper extends AbstractRequestDataMapper
      */
     private function getMode(): string
     {
-        return ! $this->isTestMode() ? 'PROD' : 'TEST';
+        return ! $this->testMode() ? 'PROD' : 'TEST';
     }
 
     /**
