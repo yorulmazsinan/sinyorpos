@@ -28,19 +28,6 @@ if (! function_exists('checkCardType')) {
 	}
 }
 
-if (! function_exists('bankSettings')) {
-	function bankSettings($name)
-	{
-		$value = SiteSetting::where('name', $name);
-
-		if ($value->count() > 0) {
-			return $value->first()->value;
-		} else {
-			return null;
-		}
-	}
-}
-
 if (! function_exists('createPosAccount')) {
 	function createPosAccount($bank, $status)
 	{
