@@ -2,6 +2,7 @@
 namespace EceoPos;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Database\DatabaseManager;
 use Illuminate\Support\Facades\DB;
 
 class EceoPosServiceProvider extends ServiceProvider
@@ -25,7 +26,7 @@ class EceoPosServiceProvider extends ServiceProvider
 	protected function configureBankSettings()
 	{
 		$bankSettings = function ($name) {
-			$value = DB::table('site_settings')->where('name', $name)->first();
+			$value = DB::connection('mysql')->table('site_settings')->where('name', $name)->first();
 			return $value ? $value->value : null;
 		};
 
