@@ -1,12 +1,12 @@
 <?php
 
 return [
-    'currencies' => [
+    'currencies' => [ // Para birimleri
         'TRY' => 949,
         'EUR' => 978,
         'USD' => 840,
     ],
-    'banks' => [
+    'banks' => [ // Bankalar
 	    'akbank' => [
 		    'name' => 'Akbank',
 		    'class' => EceoPos\Gateways\ESTVirtualPos::class,
@@ -30,10 +30,10 @@ return [
 				    'store_key' => '',
 			    ],
 			    'production' => [
-				    'client_id' => '',
-				    'username' => '',
-				    'password' => '',
-				    'store_key' => '',
+				    'client_id' => config()->get('akbank.client_id') ?: '',
+				    'username' => config()->get('akbank.username') ?: '',
+				    'password' => config()->get('akbank.password') ?: '',
+				    'store_key' => config()->get('akbank.store_key') ?: '',
 			    ],
 		    ],
 	    ],
@@ -164,10 +164,10 @@ return [
 				    'store_key' => '',
 			    ],
 			    'production' => [
-				    'client_id' => '',
-				    'username' => '',
-				    'password' => '',
-				    'store_key' => '',
+				    'client_id' => config()->get('isbank.client_id') ?: '',
+				    'username' => config()->get('isbank.username') ?: '',
+				    'password' => config()->get('isbank.password') ?: '',
+				    'store_key' => config()->get('isbank.store_key') ?: '',
 			    ],
 		    ],
 	    ],
@@ -192,12 +192,12 @@ return [
 				    'terminal_number' => '',
 			    ],
 			    'production' => [
-				    'merchant_number' => '',
-				    'posnet_id' => '',
-				    'username' => '',
-				    'password' => '',
-				    'enc_key' => '',
-				    'terminal_number' => '',
+				    'merchant_number' => config()->get('yapikredi.client_id') ?: '',
+				    'posnet_id' => config()->get('yapikredi.posnet_id') ?: '',
+				    'username' => config()->get('yapikredi.username') ?: '',
+				    'password' => config()->get('yapikredi.password') ?: '',
+				    'enc_key' => config()->get('yapikredi.enc_key') ?: '',
+				    'terminal_number' => config()->get('yapikredi.terminal_number') ?: '',
 			    ],
 		    ],
 	    ],
@@ -221,11 +221,11 @@ return [
 				    'terminal_number' => '',
 			    ],
 			    'production' => [
-				    'client_id' => '',
-				    'username' => '',
-				    'password' => '',
-				    'store_key' => '',
-				    'terminal_number' => '',
+				    'client_id' => config()->get('garanti.client_id') ?: '',
+				    'username' => config()->get('garanti.username') ?: '',
+				    'password' => config()->get('garanti.password') ?: '',
+				    'store_key' => config()->get('garanti.store_key') ?: '',
+				    'terminal_number' => config()->get('garanti.terminal_number') ?: '',
 			    ],
 		    ],
 	    ],
@@ -252,10 +252,10 @@ return [
 				    'store_key' => '',
 			    ],
 			    'production' => [
-				    'client_id' => '',
-				    'username' => '',
-				    'password' => '',
-				    'store_key' => '',
+				    'client_id' => config()->get('qnbfinansbank.client_id') ?: '',
+				    'username' => config()->get('qnbfinansbank.username') ?: '',
+				    'password' => config()->get('qnbfinansbank.password') ?: '',
+				    'store_key' => config()->get('qnbfinansbank.store_key') ?: '',
 			    ],
 		    ],
 	    ],

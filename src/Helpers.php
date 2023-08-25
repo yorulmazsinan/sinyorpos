@@ -1,6 +1,7 @@
 <?php
 use EceoPos\Factory\AccountFactory;
 use EceoPos\Gateways\AbstractGateway;
+use App\Models\SiteSetting;
 
 if (! function_exists('checkCardType')) {
 	function checkCardType($number)
@@ -27,10 +28,23 @@ if (! function_exists('checkCardType')) {
 	}
 }
 
+if (! function_exists('bankSettings')) {
+	function bankSettings($name)
+	{
+		$value = SiteSetting::where('name', $name);
+
+		if ($value->count() > 0) {
+			return $value->first()->value;
+		} else {
+			return null;
+		}
+	}
+}
+
 if (! function_exists('createPosAccount')) {
 	function createPosAccount($bank, $status)
 	{
-		$config = require __DIR__.'/../config/pos-settings.php';
+		$config = require config_path('pos-settings.php'); // Ayarları config/pos-settings.php dosyasından çekiyor. Kurulumdan sonra config/pos-settings.php dosyasını düzenleyin.
 
 		if ($bank == 'halkbank') {
 			$account = AccountFactory::createESTVirtualPosAccount(

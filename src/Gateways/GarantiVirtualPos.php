@@ -16,7 +16,7 @@ use Psr\Log\LogLevel;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Class GarantiVirtualPos
+ * Garanti Virtual Pos Gateway
  */
 class GarantiVirtualPos extends AbstractGateway
 {
@@ -25,7 +25,7 @@ class GarantiVirtualPos extends AbstractGateway
 	 */
 	public const NAME = 'GarantiPay';
 	/**
-	 * Response Codes
+	 * Response Kodları
 	 * @var array
 	 */
 	protected $codes = [

@@ -125,7 +125,7 @@ class InterVirtualPos extends AbstractGateway
 			if ('00' !== $procReturnCode) {
 				$this->logger->log(LogLevel::ERROR, '3d auth fail', ['proc_return_code' => $procReturnCode]);
 				/**
-				 * TODO hata durumu ele alinmasi gerekiyor
+				 * TODO: Hata durumunun ele alınması gerekiyor.
 				 */
 			}
 			$this->logger->log(LogLevel::DEBUG, 'finishing payment');
