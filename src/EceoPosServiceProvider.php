@@ -6,20 +6,22 @@ use Illuminate\Support\Facades\DB;
 
 class EceoPosServiceProvider extends ServiceProvider
 {
-	public function register(): void
-	{
-		$this->mergeConfigFrom(__DIR__ . '/../config/pos-settings.php', 'pos-settings');
-
-		$this->app->booted(function () {
-			$this->configureBankSettings();
-		});
-	}
 	public function boot(): void
 	{
 		$this->publishes([
 			__DIR__ . '/../config/pos-settings.php' => config_path('pos-settings.php'),
 		], 'config');
+
+		$this->app->booted(function () {
+			$this->configureBankSettings();
+		});
 	}
+
+	public function register(): void
+	{
+		$this->mergeConfigFrom(__DIR__ . '/../config/pos-settings.php', 'pos-settings');
+	}
+
 	protected function configureBankSettings()
 	{
 		$bankSettings = function ($name) {
