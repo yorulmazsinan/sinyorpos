@@ -22,6 +22,20 @@ return [
 				    'test' => 'https://entegrasyon.asseco-see.com.tr/fim/est3Dgate',
 			    ],
 		    ],
+		    'accounts' => [
+			    'test' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+			    'production' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+		    ],
 	    ],
 	    'ziraat' => [
 		    'name' => 'Ziraat Bankası',
@@ -32,6 +46,20 @@ return [
 			    'gateway' => [
 				    'production' => 'https://sanalpos2.ziraatbank.com.tr/fim/est3dgate',
 				    'test' => 'https://entegrasyon.asseco-see.com.tr/fim/est3Dgate',
+			    ],
+		    ],
+		    'accounts' => [
+			    'test' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+			    'production' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
 			    ],
 		    ],
 	    ],
@@ -46,6 +74,20 @@ return [
 				    'test' => 'https://entegrasyon.asseco-see.com.tr/fim/est3Dgate',
 			    ],
 		    ],
+		    'accounts' => [
+			    'test' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+			    'production' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+		    ],
 	    ],
         'halkbank' => [
             'name' => 'Halkbank',
@@ -58,6 +100,20 @@ return [
                     'test' => 'https://entegrasyon.asseco-see.com.tr/fim/est3Dgate',
                 ],
             ],
+            'accounts' => [
+                'test' => [
+                    'client_id' => '',
+                    'username' => '',
+                    'password' => '',
+                    'store_key' => '',
+                ],
+                'production' => [
+                    'client_id' => '',
+                    'username' => '',
+                    'password' => '',
+                    'store_key' => '',
+                ],
+            ],
         ],
 	    'teb' => [
 		    'name' => 'TEB',
@@ -68,6 +124,20 @@ return [
 			    'gateway' => [
 				    'production' => 'https://sanalpos.teb.com.tr/fim/est3Dgate',
 				    'test' => 'https://entegrasyon.asseco-see.com.tr/fim/est3Dgate',
+			    ],
+		    ],
+		    'accounts' => [
+			    'test' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+			    'production' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
 			    ],
 		    ],
 	    ],
@@ -86,6 +156,20 @@ return [
 				    'test' => 'https://entegrasyon.asseco-see.com.tr/fim/est3Dgate',
 			    ],
 		    ],
+		    'accounts' => [
+			    'test' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+			    'production' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+		    ],
 	    ],
 	    'uapikredi' => [
 		    'name' => 'Yapıkredi',
@@ -98,6 +182,24 @@ return [
 				    'test' => 'https://setmpos.ykb.com/3DSWebService/YKBPaymentService',
 			    ],
 		    ],
+		    'accounts' => [
+			    'test' => [
+				    'merchant_number' => '',
+				    'posnet_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'enc_key' => '',
+				    'terminal_number' => '',
+			    ],
+			    'production' => [
+				    'merchant_number' => '',
+				    'posnet_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'enc_key' => '',
+				    'terminal_number' => '',
+			    ],
+		    ],
 	    ],
 	    'garanti' => [
 		    'name' => 'Garanti',
@@ -108,6 +210,22 @@ return [
 			    'gateway' => [
 				    'production' => 'https://sanalposprov.garanti.com.tr/servlet/gt3dengine',
 				    'test' => 'https://sanalposprovtest.garanti.com.tr/servlet/gt3dengine',
+			    ],
+		    ],
+		    'accounts' => [
+			    'test' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+				    'terminal_number' => '',
+			    ],
+			    'production' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+				    'terminal_number' => '',
 			    ],
 		    ],
 	    ],
@@ -126,6 +244,20 @@ return [
 				    'test' => 'https://vpostest.qnbfinansbank.com/Gateway/3DHost.aspx',
 			    ],
 		    ],
+		    'accounts' => [
+			    'test' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+			    'production' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+		    ],
 	    ],
 	    'vakifbank' => [
 		    'name' => 'Vakıfbank',
@@ -136,6 +268,20 @@ return [
 			    'gateway' => [
 				    'production' => 'https://3dsecure.vakifbank.com.tr:4443/MPIAPI/MPI_Enrollment.aspx',
 				    'test' => 'https://3dsecuretest.vakifbank.com.tr:4443/MPIAPI/MPI_Enrollment.aspx',
+			    ],
+		    ],
+		    'accounts' => [
+			    'test' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+			    'production' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
 			    ],
 		    ],
 	    ],
@@ -154,6 +300,20 @@ return [
 				    'test' => 'https://test.inter-vpos.com.tr/mpi/3DHost.aspx',
 			    ],
 		    ],
+		    'accounts' => [
+			    'test' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+			    'production' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+		    ],
 	    ],
 	    'kuveytpos' => [
 		    'name' => 'Kuveyt Türk',
@@ -164,6 +324,20 @@ return [
 			    'gateway' => [
 				    'production' => 'https://boa.kuveytturk.com.tr/sanalposservice/Home/ThreeDModelPayGate',
 				    'test' => 'https://boatest.kuveytturk.com.tr/boa.virtualpos.services/Home/ThreeDModelPayGate',
+			    ],
+		    ],
+		    'accounts' => [
+			    'test' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+			    'production' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
 			    ],
 		    ],
 	    ]
