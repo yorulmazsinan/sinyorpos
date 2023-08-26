@@ -1,5 +1,7 @@
 <?php
 
+use EceoPos\Factory\CreditCardFactory;
+use EceoPos\Factory\PosFactory;
 use Illuminate\Support\Facades\Auth;
 use EceoPos\Factory\AccountFactory;
 use EceoPos\Gateways\AbstractGateway;
@@ -145,6 +147,52 @@ if (! function_exists('paymentReadiness')) {
 			'orderId' => $orderId,
 			'order' => $order ?? null,
 			'bank' => $bank,
+		];
+	}
+}
+if (! function_exists('receicePayment')) {
+	function receicePayment($orderId)
+	{
+		$order = Order::where('payment_id', $orderId)->first(); // Sipariş bilgilerini alıyoruz.
+		$user = User::find($order->user_id); // Kullanıcı bilgilerini alıyoruz.
+		Auth::login($user); // Kullanıcıyı otomatik olarak giriş yaptırıyoruz.
+
+		$account = createPosAccount($order->payment_bank, 'production'); // Sanal pos hesap bilgilerini oluşturuyoruz.
+		$pos = PosFactory::createPosGateway($account); // Sanal pos hesap bilgilerini kontrol ediyoruz.
+
+		$orderInformations = json_decode($order->buying_informations, true)['order']; // Sipariş bilgilerini alıyoruz.
+		$cardInformations = json_decode($order->buying_informations, true)['card']; // Kart bilgilerini alıyoruz.
+
+		// PosGateway nesnesi için gerekli olan bilgileri bir diziye atıyoruz.
+		$posArray = [
+			'pos' => $pos,
+			'card_number' => @$cardInformations['number'],
+			'card_expiry_year' => @$cardInformations['year'],
+			'card_expiry_month' => @$cardInformations['month'],
+			'card_cvv' => @$cardInformations['cvc'],
+			'card_name' => @$cardInformations['name'],
+			'card_type' => @$cardInformations['type'],
+		];
+
+		$card = CreditCardFactory::create($posArray); // Kart bilgilerini CreditCardFactory sınıfından bir CreditCard nesnesi oluşturuyoruz.
+
+		$pos->prepare($orderInformations, AbstractGateway::TX_PAY); // Ödeme için hazırlık yapıyoruz.
+
+		if ($pos->getAccount()->getModel() === AbstractGateway::MODEL_NON_SECURE && AbstractGateway::TX_POST_PAY !== AbstractGateway::TX_PAY) {
+			$pos->payment($card);
+		} else {
+			$pos->payment();
+		}
+
+		$response = $pos->getResponse(); // Ödeme işlemi sonucunu alıyoruz.
+		$yapikrediResponse = json_decode(json_encode([$response][0]), true); // Yapıkredi ödeme sonucunu alıyoruz.
+
+		return [
+			'pos' => $pos,
+			'order' => $order,
+			'orderInformations' => $orderInformations,
+			'response' => $response,
+			'yapikrediResponse' => $yapikrediResponse,
 		];
 	}
 }
