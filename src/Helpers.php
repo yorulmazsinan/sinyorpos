@@ -123,8 +123,6 @@ if (! function_exists('paymentReadiness')) {
 
 			if ($getOrder) { // Eğer "getOrder" parametresi true ise, "order_id" kaydına ait sipariş bilgilerini çekiyoruz.
 				$order = Order::where('payment_id', $orderId); // Sipariş bilgilerini alıyoruz.
-			} else {
-				$order = null;
 			}
 		} else { // Eğer "order_id" kaydı yoksa, yeni bir kayıt oluşturuyoruz.
 			$orderId = substr(hash('sha256', mt_rand() . microtime()), 0, 18); // "order_id" kaydı için 18 karakterlik bir random string oluşturuyoruz.
@@ -145,7 +143,7 @@ if (! function_exists('paymentReadiness')) {
 		return [
 			'user' => $user,
 			'orderId' => $orderId,
-			'order' => $order,
+			'order' => $order ?? null,
 			'bank' => $bank,
 		];
 	}
