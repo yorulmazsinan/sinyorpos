@@ -150,8 +150,8 @@ if (! function_exists('paymentReadiness')) {
 		];
 	}
 }
-if (! function_exists('receicePayment')) {
-	function receicePayment($orderId)
+if (! function_exists('receivePayment')) {
+	function receivePayment($orderId)
 	{
 		$order = Order::where('payment_id', $orderId)->first(); // Sipariş bilgilerini alıyoruz.
 		$user = User::find($order->user_id); // Kullanıcı bilgilerini alıyoruz.
