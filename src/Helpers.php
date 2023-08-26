@@ -1,6 +1,10 @@
 <?php
+
+use Illuminate\Support\Facades\Auth;
 use EceoPos\Factory\AccountFactory;
 use EceoPos\Gateways\AbstractGateway;
+use App\Models\Order;
+use App\Models\User;
 use App\Models\SiteSetting;
 
 if (! function_exists('checkCardType')) {
@@ -27,7 +31,6 @@ if (! function_exists('checkCardType')) {
 		return $type;
 	}
 }
-
 if (! function_exists('createPosAccount')) {
 	function createPosAccount($bank, $status)
 	{
@@ -99,6 +102,42 @@ if (! function_exists('createPosAccount')) {
 			return $account;
 		} else {
 			return null;
+		}
+	}
+}
+if (! function_exists('paymentReadiness')) {
+	function paymentReadiness($getOrder = false, $getBankSession = false)
+	{
+		if (Auth::check()) { // Eğer kullanıcı giriş yapmışsa, kullanıcı bilgilerini alıyoruz.
+			$user = User::firstWhere('id', Auth::id()) ?? null;
+		} elseif(session('buyer_id')) { // Eğer kullanıcı giriş yapmamışsa, kullanıcı bilgilerini "buyer_id"den alıp giriş yaptırıyoruz.
+			$user = session('buyer_id') ? User::firstWhere('id', session('buyer_id')) : null;
+
+			Auth::login($user); // Kullanıcıyı otomatik olarak giriş yaptırıyoruz.
+		} else {
+			return back()->with('error', __('Ödeme yapabilmek için giriş yapılı olmanız gerekmektedir.'));
+		}
+
+		if (session()->has('order_id')) { // Eğer "order_id" kaydı varsa, bu kaydı kullanıyoruz.
+			$orderId = session('order_id'); // "order_id" kaydını değişkene atıyoruz.
+
+			if ($getOrder) { // Eğer "getOrder" parametresi true ise, "order_id" kaydına ait sipariş bilgilerini çekiyoruz.
+				$order = Order::where('payment_id', $orderId); // Sipariş bilgilerini alıyoruz.
+			}
+		} else { // Eğer "order_id" kaydı yoksa, yeni bir kayıt oluşturuyoruz.
+			$orderId = substr(hash('sha256', mt_rand() . microtime()), 0, 18); // "order_id" kaydı için 18 karakterlik bir random string oluşturuyoruz.
+
+			session()->put('order_id', $orderId); // Oluşturduğumuz random stringi "order_id" olarak kaydediyoruz.
+		}
+
+		if ($getBankSession) { // Eğer "getBankSession" parametresi true ise, banka oturumunu çekiyoruz.
+			$bankSession = session()->get('bank'); // Banka bilgilerini alıyoruz.
+
+			if ($bankSession !== 'other' && $bankSession !== '' && $bankSession !== null) { // Eğer banka bilgileri varsa, bu bilgileri kullanıyoruz.
+				$bank = session()->get('bank');
+			} else {
+				$bank = siteSettings('virtualpos');
+			}
 		}
 	}
 }
