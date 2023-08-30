@@ -116,8 +116,8 @@ if (! function_exists('paymentReadiness')) {
 			$user = session('buyer_id') ? User::firstWhere('id', session('buyer_id')) : null;
 
 			Auth::login($user); // Kullanıcıyı otomatik olarak giriş yaptırıyoruz.
-		} else {
-			return back()->with('error', __('Ödeme yapabilmek için giriş yapılı olmanız gerekmektedir.'));
+		} else { // Sipariş bilgileri yoksa, ulaşılamadığı için ödeme işlemi tamamlanamıyor ve ödeme sayfasına yönlendiriliyor.
+			return redirect()->route('checkout')->with('error', __('Sipariş bilgilerinize ulaşılamadığı için ödeme işlemi tamamlanamadı. Lütfen tekrar deneyiniz.'));
 		}
 
 		if (session()->has('order_id')) { // Eğer "order_id" kaydı varsa, bu kaydı kullanıyoruz.
@@ -151,11 +151,16 @@ if (! function_exists('paymentReadiness')) {
 	}
 }
 if (! function_exists('receivePayment')) {
-	function receivePayment($orderId)
+	function receivePayment($orderId, $isUser = true)
 	{
 		$order = Order::where('payment_id', $orderId)->first(); // Sipariş bilgilerini alıyoruz.
-		$user = User::find($order->user_id); // Kullanıcı bilgilerini alıyoruz.
-		Auth::login($user); // Kullanıcıyı otomatik olarak giriş yaptırıyoruz.
+
+		if ($isUser == true) {
+			$user = User::find($order->user_id); // Kullanıcı bilgilerini alıyoruz.
+			Auth::login($user); // Kullanıcıyı otomatik olarak giriş yaptırıyoruz.
+		} else {
+			$user = null;
+		}
 
 		$account = createPosAccount($order->payment_bank, 'production'); // Sanal pos hesap bilgilerini oluşturuyoruz.
 		$pos = PosFactory::createPosGateway($account); // Sanal pos hesap bilgilerini kontrol ediyoruz.
