@@ -151,7 +151,7 @@ if (! function_exists('paymentReadiness')) {
 	}
 }
 if (! function_exists('receivePayment')) {
-	function receivePayment($orderId, $isUser = true)
+	function receivePayment($orderId, $isUser = true, $userInformations = true)
 	{
 		$order = Order::where('payment_id', $orderId)->first(); // Sipariş bilgilerini alıyoruz.
 
@@ -165,7 +165,7 @@ if (! function_exists('receivePayment')) {
 		$account = createPosAccount($order->payment_bank, 'production'); // Sanal pos hesap bilgilerini oluşturuyoruz.
 		$pos = PosFactory::createPosGateway($account); // Sanal pos hesap bilgilerini kontrol ediyoruz.
 
-		if ($isUser == true) {
+		if ($userInformations == true) {
 			$userInformations = json_decode($order->buying_informations, true)['user']; // Kullanıcı bilgilerini alıyoruz.
 		} else {
 			$userInformations = null;
