@@ -117,7 +117,7 @@ if (! function_exists('paymentReadiness')) {
 
 			Auth::login($user); // Kullanıcıyı otomatik olarak giriş yaptırıyoruz.
 		} else { // Sipariş bilgileri yoksa, ulaşılamadığı için ödeme işlemi tamamlanamıyor ve ödeme sayfasına yönlendiriliyor.
-			return redirect()->route('checkout')->with('error', __('Sipariş bilgilerinize ulaşılamadığı için ödeme işlemi tamamlanamadı. Lütfen tekrar deneyiniz.'));
+			$user = null;
 		}
 
 		if (session()->has('order_id')) { // Eğer "order_id" kaydı varsa, bu kaydı kullanıyoruz.
