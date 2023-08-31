@@ -122,14 +122,14 @@ if (! function_exists('paymentReadiness')) {
 
 		if (session()->has('order_id')) { // Eğer "order_id" kaydı varsa, bu kaydı kullanıyoruz.
 			$orderId = session('order_id'); // "order_id" kaydını değişkene atıyoruz.
-
-			if ($getOrder) { // Eğer "getOrder" parametresi true ise, "order_id" kaydına ait sipariş bilgilerini çekiyoruz.
-				$order = Order::where('payment_id', $orderId); // Sipariş bilgilerini alıyoruz.
-			}
 		} else { // Eğer "order_id" kaydı yoksa, yeni bir kayıt oluşturuyoruz.
 			$orderId = substr(hash('sha256', mt_rand() . microtime()), 0, 18); // "order_id" kaydı için 18 karakterlik bir random string oluşturuyoruz.
 
 			session()->put('order_id', $orderId); // Oluşturduğumuz random stringi "order_id" olarak kaydediyoruz.
+		}
+
+		if ($getOrder) { // Eğer "getOrder" parametresi true ise, "order_id" kaydına ait sipariş bilgilerini çekiyoruz.
+			$order = Order::where('payment_id', $orderId); // Sipariş bilgilerini alıyoruz.
 		}
 
 		if ($getBankSession) { // Eğer "getBankSession" parametresi true ise, banka oturumunu çekiyoruz.
