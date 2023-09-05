@@ -168,7 +168,8 @@ class PosNetVirtualPos extends AbstractGateway
 		$data = parent::emptyStringsToNull($data);
 		if ('0' === $data['approved']) {
 			$this->logger->log(LogLevel::ERROR, 'enrollment fail response', $data);
-			throw new Exception($data['respText'], $data['respCode']);
+			$respCode = (int)$data['respCode'] ?? 0;
+			throw new Exception($data['respText'], $respCode);
 		}
 		$this->logger->log(LogLevel::DEBUG, 'preparing 3D form data');
 		return $this->requestDataMapper->create3DFormData($this->account, $this->order, $this->type, $this->get3DGatewayURL(), $this->card, $data['oosRequestDataResponse']);
