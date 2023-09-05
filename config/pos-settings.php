@@ -171,7 +171,7 @@ return [
 			    ],
 		    ],
 	    ],
-	    'uapikredi' => [
+	    'yapikredi' => [
 		    'name' => 'Yapıkredi',
 		    'class' => EceoPos\Gateways\PosNetVirtualPos::class,
 		    'urls' => [
