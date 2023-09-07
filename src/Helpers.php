@@ -122,7 +122,7 @@ if (!function_exists('createPosAccount')) {
 				$config['banks'][$bank]['accounts'][$status]['password'],
 				$config['banks'][$bank]['accounts'][$status]['terminal_number'],
 				$config['banks'][$bank]['accounts'][$status]['posnet_id'],
-				AbstractGateway::MODEL_3D_SECURE,
+				AbstractGateway::MODEL_NON_SECURE,
 				$config['banks'][$bank]['accounts'][$status]['enc_key']
 			);
 		}
