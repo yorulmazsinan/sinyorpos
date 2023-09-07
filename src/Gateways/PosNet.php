@@ -130,11 +130,9 @@ class PosNet extends AbstractGateway
             throw new LogicException('Kredi kartı veya sipariş bilgileri eksik!');
         }
 
-        $data = $this->getOosTransactionData();
-
         $this->logger->log(LogLevel::DEBUG, 'preparing 3D form data');
 
-        return $this->requestDataMapper->create3DFormData($this->account, $this->order, $this->type, $this->get3DGatewayURL(), $this->card, $data['oosRequestDataResponse']);
+        return $this->requestDataMapper->create3DFormData($this->account, $this->order, $this->type, $this->get3DGatewayURL(), $this->card);
     }
 
     /**
