@@ -95,7 +95,7 @@ class PosFactory
 		if (is_string($config)) {
 			$config = require $config;
 		} elseif (empty($config)) {
-			$config = require __DIR__.'/../../config/pos.php';
+			$config = require __DIR__.'/../../config/pos-settings.php';
 		}
 
 		// Bank API Exist
