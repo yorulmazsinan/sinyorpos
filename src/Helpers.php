@@ -200,18 +200,7 @@ if (!function_exists('receivePayment')) {
 		$orderInformations = json_decode($order->buying_informations, true)['order']; // Sipariş bilgilerini alıyoruz.
 		$cardInformations = json_decode($order->buying_informations, true)['card']; // Kart bilgilerini alıyoruz.
 
-		// PosGateway nesnesi için gerekli olan bilgileri bir diziye atıyoruz.
-		$posArray = [
-			'pos' => $pos,
-			'card_number' => @$cardInformations['number'],
-			'card_expiry_year' => @$cardInformations['year'],
-			'card_expiry_month' => @$cardInformations['month'],
-			'card_cvv' => @$cardInformations['cvc'],
-			'card_name' => @$cardInformations['name'],
-			'card_type' => @$cardInformations['type'],
-		];
-
-		$card = CreditCardFactory::create($posArray); // Kart bilgilerini CreditCardFactory sınıfından bir CreditCard nesnesi oluşturuyoruz.
+		$card = createCard($pos, $cardInformations['card']); // Kart bilgilerini oluşturuyoruz.
 
 		$pos->prepare($orderInformations, AbstractGateway::TX_PAY); // Ödeme için hazırlık yapıyoruz.
 
