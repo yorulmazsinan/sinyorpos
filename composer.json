@@ -2,7 +2,7 @@
 	"name": "sinyor/pos",
 	"description": "Laravel uygulamaları için geliştirilmiş POS paketi.",
 	"keywords": ["pos", "sanal pos", "est", "est pos", "akbank", "posnet", "payfor", "vakifbankpos", "intervpos", "denizbank sanalpos", "kuveytpos"],
-	"homepage": "https://github.com/yorulmazsinan/pos",
+	"homepage": "https://github.com/yorulmazsinan/sinyorpos",
 	"license": "MIT",
 	"authors": [
 		{
