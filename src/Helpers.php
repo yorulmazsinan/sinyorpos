@@ -169,10 +169,17 @@ if (!function_exists('paymentReadiness')) {
 			}
 		}
 
+		if ($bank == 'yapikredi') {
+			$currency = 'TL';
+		} else {
+			$currency = 'TRY';
+		}
+
 		return [
 			'user' => $user,
 			'orderId' => $orderId,
 			'order' => $order ?? null,
+			'currency' => $currency,
 			'bank' => $bank,
 		];
 	}
