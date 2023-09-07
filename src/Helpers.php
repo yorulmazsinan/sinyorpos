@@ -196,8 +196,7 @@ if (!function_exists('receivePayment')) {
 			$user = null;
 		}
 
-		$account = createPosAccount($order->payment_bank, 'production'); // Sanal pos hesap bilgilerini oluşturuyoruz.
-		$pos = PosFactory::createPosGateway($account); // Sanal pos hesap bilgilerini kontrol ediyoruz.
+		$pos = getGateway(createPosAccount($order->payment_bank, 'production')); // PosGateway nesnesini alıyoruz.
 
 		if ($userInformations == true) {
 			$userInformations = json_decode($order->buying_informations, true)['user']; // Kullanıcı bilgilerini alıyoruz.
