@@ -121,18 +121,20 @@ class PosNet extends AbstractGateway
      */
     public function get3DFormData(): array
     {
-	    if (null === $this->order) {
-		    $this->logger->log(LogLevel::ERROR, 'tried to get 3D form data without setting order', [
-			    'order'         => $this->order,
-			    'card_provided' => (bool) $this->card,
-		    ]);
+        if (!$this->card || !$this->order) {
+            $this->logger->log(LogLevel::ERROR, 'tried to get 3D form data without setting order', [
+                'order' => $this->order,
+                'card_provided' => (bool) $this->card,
+            ]);
 
-		    throw new LogicException('Kredi kartı veya sipariş bilgileri eksik!');
-	    }
+            throw new LogicException('Kredi kartı veya sipariş bilgileri eksik!');
+        }
 
-	    $this->logger->log(LogLevel::DEBUG, 'preparing 3D form data');
+        $data = $this->getOosTransactionData();
 
-	    return $this->requestDataMapper->create3DFormData($this->account, $this->order, $this->type, $this->get3DGatewayURL(), $this->card);
+        $this->logger->log(LogLevel::DEBUG, 'preparing 3D form data');
+
+        return $this->requestDataMapper->create3DFormData($this->account, $this->order, $this->type, $this->get3DGatewayURL(), $this->card, $data['oosRequestDataResponse']);
     }
 
     /**
