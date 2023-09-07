@@ -1,12 +1,13 @@
 <?php
 
-namespace EceoPos\Exceptions;
+namespace SinyorPos\Exceptions;
 
 use Exception;
 use Throwable;
 
 /**
  * Class BankClassNullException
+ * @package SinyorPos\Exceptions
  */
 class BankClassNullException extends Exception
 {
@@ -15,7 +16,7 @@ class BankClassNullException extends Exception
      *
      * @param  string  $message
      * @param  int  $code
-     * @param  Throwable|null  $previous
+     * @param  Throwable|null $previous
      */
     public function __construct($message = 'Sınıf belirtilmelidir!', $code = 331, Throwable $previous = null)
     {

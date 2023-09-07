@@ -1,5 +1,6 @@
 <?php
-namespace EceoPos\Entity\Card;
+
+namespace SinyorPos\Entity\Card;
 
 use DateTimeImmutable;
 
@@ -8,45 +9,60 @@ use DateTimeImmutable;
  */
 abstract class AbstractCreditCard
 {
+	/** @var string */
 	public const CARD_TYPE_VISA = 'visa';
+
+	/** @var string */
 	public const CARD_TYPE_MASTERCARD = 'master';
+
+	/** @var string */
 	public const CARD_TYPE_AMEX = 'amex';
+
+	/** @var string */
 	public const CARD_TYPE_TROY = 'troy';
+
 	/**
-	 * 16 haneli boşluksuz bir şekilde girilmiş kredi kartı numarası.
+	 * 16 digit credit card number without spaces
 	 * @var string
 	 */
 	protected $number;
+
 	/** @var DateTimeImmutable */
 	protected $expDate;
+
 	/** @var string */
 	protected $cvv;
+
 	/** @var string|null */
 	protected $holderName;
+
 	/**
-	 * visa, master, troy, amex vs.
+	 * visa, master, troy, amex, ...
 	 * @var string|null
 	 */
 	protected $type;
 
 	/**
-	 * @param string $number ; boşluklu veya boşluksuz kredi kartı numarası
+	 * AbstractCreditCard constructor.
+	 *
+	 * @param string            $number   credit card number with or without spaces
 	 * @param DateTimeImmutable $expDate
-	 * @param string $cvv
-	 * @param string|null $cardHolderName
-	 * @param string|null $cardType ; örnek değerler: 'visa', 'master', '1', '2' vb.
+	 * @param string            $cvv
+	 * @param string|null       $cardHolderName
+	 * @param string|null       $cardType examples values: 'visa', 'master', '1', '2'
+	 *
 	 */
 	public function __construct(string $number, DateTimeImmutable $expDate, string $cvv, ?string $cardHolderName = null, ?string $cardType = null)
 	{
-		$this->number = preg_replace('/\s+/', '', $number);
-		$this->expDate = $expDate;
-		$this->cvv = $cvv;
+		$this->number     = preg_replace('/\s+/', '', $number);
+		$this->expDate    = $expDate;
+		$this->cvv        = $cvv;
 		$this->holderName = $cardHolderName;
-		$this->type = $cardType;
+		$this->type       = $cardType;
 	}
 
 	/**
-	 * Boşluk olmadan kart numarasını döndürür.
+	 * returns card number without white spaces
 	 * @return string
 	 */
 	public function getNumber(): string
@@ -55,8 +71,10 @@ abstract class AbstractCreditCard
 	}
 
 	/**
-	 * EXP yılını 2 haneli olarak döndürür. (Örnek: '01' '02' '12')
+	 * returns exp year in 2 digit format
+	 *
 	 * @param string $format
+	 *
 	 * @return string
 	 */
 	public function getExpireYear(string $format = 'y'): string
@@ -65,8 +83,10 @@ abstract class AbstractCreditCard
 	}
 
 	/**
-	 * EXP ayını 2 haneli olarak döndürür. (Örnek: '01' '02' '12')
+	 * returns exp year in 2 digit format. i.e '01' '02' '12'
+	 *
 	 * @param string $format
+	 *
 	 * @return string
 	 */
 	public function getExpireMonth(string $format = 'm'): string
@@ -75,8 +95,10 @@ abstract class AbstractCreditCard
 	}
 
 	/**
-	 * Kartın son kullanma tarihindeki ayı ve yılı birleştirir. (Örnek: '0120' '0220' '1220')
+	 * returns card exp date month and year combined.
+	 *
 	 * @param string $format
+	 *
 	 * @return string
 	 */
 	public function getExpirationDate(string $format = 'ym'): string

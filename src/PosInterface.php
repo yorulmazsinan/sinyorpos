@@ -1,10 +1,13 @@
 <?php
 
-namespace EceoPos;
+/**
+ * @license MIT
+ */
+namespace SinyorPos;
 
-use EceoPos\Entity\Card\AbstractCreditCard;
-use EceoPos\Exceptions\UnsupportedPaymentModelException;
-use EceoPos\Gateways\AbstractGateway;
+use SinyorPos\Entity\Card\AbstractCreditCard;
+use SinyorPos\Exceptions\UnsupportedPaymentModelException;
+use SinyorPos\Gateways\AbstractGateway;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -12,136 +15,135 @@ use Symfony\Component\HttpFoundation\Request;
  */
 interface PosInterface
 {
-    /**
-     * XML olarak DOM belgesini oluşturur:
-     *
-     * @param  array  $nodes
-     * @param  string  $encoding
-     * @param  bool  $ignorePiNode ; doğru olduğunda, onu bu düğümle sarmaz: <?xml version="1.0" encoding="UTF-8"?>
-     * @return string; XML, veya bir hata oluştuysa false.
-     */
-    public function createXML(array $nodes, string $encoding = 'UTF-8', bool $ignorePiNode = false): string;
+	/**
+	 * Create XML DOM Document
+	 *
+	 * @param array  $nodes
+	 * @param string $encoding
+	 * @param bool   $ignorePiNode when true it will not wrap it with this node <?xml version="1.0" encoding="UTF-8"?>
+	 *
+	 * @return string the XML, or false if an error occurred.
+	 */
+	public function createXML(array $nodes, string $encoding = 'UTF-8', bool $ignorePiNode = false);
 
-    /**
-     * @return null|string
-     *
-     * @deprecated sadece emptyStringsToNull() işlevini çağırın
-     */
-    public function printData($data): ?string;
+	/**
+	 * Regular Payment
+	 *
+	 * @return AbstractGateway
+	 */
+	public function makeRegularPayment();
 
-    /**
-     * Regular Payment
-     *
-     * @return AbstractGateway
-     */
-    public function makeRegularPayment();
+	/**
+	 * Make 3D Payment
+	 * @param Request $request
+	 *
+	 * @return AbstractGateway
+	 */
+	public function make3DPayment(Request $request);
 
-    /**
-     * 3D Ödeme Yap
-     *
-     * @param  Request  $request
-     * @return AbstractGateway
-     */
-    public function make3DPayment(Request $request);
+	/**
+	 * Make 3D Pay Payment
+	 * @param Request $request
+	 *
+	 * @return AbstractGateway
+	 */
+	public function make3DPayPayment(Request $request);
 
-    /**
-     * 3D Pay Ödemesi Yap
-     *
-     * @param  Request  $request
-     * @return AbstractGateway
-     */
-    public function make3DPayPayment(Request $request);
+	/**
+	 * Just returns formatted data of host payment response
+	 * @param Request $request
+	 *
+	 * @return AbstractGateway
+	 */
+	public function make3DHostPayment(Request $request);
 
-    /**
-     * Yalnızca ana bilgisayar, ödeme yanıtının biçimlendirilmiş verilerini döndürür.
-     *
-     * @param  Request  $request
-     * @return AbstractGateway
-     */
-    public function make3DHostPayment(Request $request);
+	/**
+	 * Send contents to WebService
+	 *
+	 * @param array|string $contents
+	 * @param string|null  $url
+	 *
+	 * @return string|array|null
+	 */
+	public function send($contents, ?string $url = null);
 
-    /**
-     * İçeriği "WebService"e gönderir.
-     *
-     * @param  array|string  $contents
-     * @param  string|null  $url
-     * @return mixed
-     */
-    public function send($contents, ?string $url = null);
+	/**
+	 * Prepare Order
+	 *
+	 * @param array                   $order
+	 * @param AbstractGateway::TX_*   $txType
+	 * @param AbstractCreditCard|null $card   need when 3DFormData requested
+	 *
+	 * @return void
+	 */
+	public function prepare(array $order, string $txType, AbstractCreditCard $card = null);
 
-    /**
-     * Prepare Order
-     *
-     * @param  array  $order
-     * @param  string  $txType ; AbstractGateway için geçerli bir işlem türü.
-     * @param  AbstractCreditCard|null  $card ; "3DFormData" talep edildiğinde kullanılır.
-     * @return self
-     */
-    public function prepare(array $order, string $txType, $card = null);
+	/**
+	 * Make Payment
+	 *
+	 * @param AbstractCreditCard $card
+	 *
+	 * @return AbstractGateway
+	 *
+	 * @throws UnsupportedPaymentModelException
+	 */
+	public function payment($card);
 
-    /**
-     * Ödeme Yap
-     *
-     * @param  AbstractCreditCard  $card
-     * @return AbstractGateway
-     *
-     * @throws UnsupportedPaymentModelException
-     */
-    public function payment($card);
+	/**
+	 * Refund Order
+	 *
+	 * @return AbstractGateway
+	 */
+	public function refund();
 
-    /**
-     * Siparişi İade Et
-     *
-     * @return AbstractGateway
-     */
-    public function refund();
+	/**
+	 * Cancel Order
+	 *
+	 * @return AbstractGateway
+	 */
+	public function cancel();
 
-    /**
-     * Siparişi İptal Et
-     *
-     * @return AbstractGateway
-     */
-    public function cancel();
+	/**
+	 * Order Status
+	 *
+	 * @return AbstractGateway
+	 */
+	public function status();
 
-    /**
-     * Sipariş Durumu
-     *
-     * @return AbstractGateway
-     */
-    public function status();
+	/**
+	 * Order History
+	 *
+	 * @param array $meta
+	 *
+	 * @return AbstractGateway
+	 */
+	public function history(array $meta);
 
-    /**
-     * Sipariş Geçmişi
-     *
-     * @param  array  $meta
-     * @return AbstractGateway
-     */
-    public function history(array $meta);
+	/**
+	 * Is success
+	 *
+	 * @return bool
+	 */
+	public function isSuccess();
 
-    /**
-     * Başarılı mı?
-     *
-     * @return bool
-     */
-    public function isSuccess();
+	/**
+	 * Enable/Disable test mode
+	 *
+	 * @param bool $testMode
+	 *
+	 * @return AbstractGateway
+	 */
+	public function setTestMode(bool $testMode);
 
-    /**
-     * @return bool
-     *
-     * @deprecated için isSuccess() işlevini kullanın.
-     */
-    public function isError();
+	/**
+	 * Enable/Disable test mode
+	 *
+	 * @return bool
+	 */
+	public function isTestMode();
 
-    /**
-     * Test modunu etkinleştirir veya devre dışı bırakır.
-     *
-     * @param  bool  $testMode
-     * @return AbstractGateway
-     */
-    public function setTestMode(bool $testMode);
-
-    /**
-     * @return bool
-     */
-    public function testMode();
+	/**
+	 * @return array<AbstractCreditCard::CARD_TYPE_*, string>
+	 */
+	public function getCardTypeMapping(): array;
 }

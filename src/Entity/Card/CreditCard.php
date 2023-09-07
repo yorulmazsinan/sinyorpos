@@ -1,5 +1,7 @@
 <?php
-namespace EceoPos\Entity\Card;
+
+namespace SinyorPos\Entity\Card;
+
 /**
  * CreditCard Sınıfı (Kredi Kartı bilgilerini tutar.)
  */

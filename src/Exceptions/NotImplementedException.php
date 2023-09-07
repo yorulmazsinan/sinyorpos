@@ -1,6 +1,6 @@
 <?php
 
-namespace EceoPos\Exceptions;
+namespace SinyorPos\Exceptions;
 
 use BadMethodCallException;
 use Throwable;
@@ -11,7 +11,7 @@ use Throwable;
 class NotImplementedException extends BadMethodCallException
 {
     /**
-     * {@inheritDoc}
+     * @inheritDoc
      */
     public function __construct($message = 'Uygulanmadı!', $code = 500, Throwable $previous = null)
     {

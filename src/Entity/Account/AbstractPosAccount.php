@@ -1,41 +1,42 @@
 <?php
-namespace EceoPos\Entity\Account;
+
+namespace SinyorPos\Entity\Account;
+
 abstract class AbstractPosAccount
 {
-	/**
-	 * @var string
-	 */
+	/** @var string */
 	protected $clientId;
+
 	/**
-	 * Hesap modeli: regular, 3d, 3d_pay, 3d_host
+	 * account models: regular, 3d, 3d_pay, 3d_host
 	 * @var string
 	 */
 	protected $model;
-	/**
-	 * @var string
-	 */
+
+	/** @var string */
 	protected $username;
-	/**
-	 * @var string
-	 */
+
+	/** @var string */
 	protected $password;
+
 	/**
-	 * Normal olmayan hesap modelleri için gerekli.
+	 * required for non regular account models
 	 * @var string|null
 	 */
 	protected $storeKey;
-	/**
-	 * @var string
-	 */
+
+	/** @var string */
 	protected $lang;
+
 	/**
-	 * Yapılandırma dosyasında kullanılan banka anahtarının adı:
+	 * bank key name used in configuration file
+	 *
 	 * @var string
 	 */
 	protected $bank;
 
 	/**
-	 * AbstractPosAccount yapıcı metodu:
+	 * AbstractPosAccount constructor.
 	 * @param string $bank
 	 * @param string $model
 	 * @param string $clientId

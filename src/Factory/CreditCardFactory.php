@@ -1,13 +1,14 @@
 <?php
-namespace EceoPos\Factory;
+namespace SinyorPos\Factory;
 
 use DateTimeImmutable;
 use DomainException;
-use EceoPos\Entity\Card\AbstractCreditCard;
-use EceoPos\Entity\Card\CreditCard;
-use EceoPos\Exceptions\CardTypeNotSupportedException;
-use EceoPos\Exceptions\CardTypeRequiredException;
-use EceoPos\PosInterface;
+use SinyorPos\Entity\Card\AbstractCreditCard;
+use SinyorPos\Entity\Card\CreditCard;
+use SinyorPos\Exceptions\CardTypeNotSupportedException;
+use SinyorPos\Exceptions\CardTypeRequiredException;
+use SinyorPos\Gateways\AbstractGateway;
+use SinyorPos\PosInterface;
 
 /**
  * CreditCardFactory
@@ -15,37 +16,48 @@ use EceoPos\PosInterface;
 class CreditCardFactory
 {
 	/**
-	 * AbstractCreditCard yapıcı metodu:
-	 * @param PosInterface $pos
-	 * @param string $number ; boşluklu veya boşluksuz kredi kartı numarası
-	 * @param string $expireYear ; yılı 1, 2 ve 4 haneli olarak kabul eder. (örn: 1, 20, 2020)
-	 * @param string $expireMonth ; tek haneli ve çift haneli olarak ay değerlerini kabul eder. (örn: 1, 01, 12)
-	 * @param string $cvv
-	 * @param string|null $cardHolderName
-	 * @param string|null $cardType ; kart tipidir ve bankaya göre zorunludur. (örn: Visa, MasterCard, ...)
+	 * AbstractCreditCard constructor.
+	 *
+	 * @param PosInterface|AbstractGateway $pos
+	 * @param string       $number         credit card number with or without spaces
+	 * @param string       $expireYear     accepts year in 1, 2 and 4 digit format. accepted year formats '1' (2001), '02'
+	 *                                     (2002), '20' (2020), '2024' (2024)
+	 * @param string       $expireMonth    single digit or double digit month values are accepted
+	 * @param string       $cvv
+	 * @param string|null  $cardHolderName
+	 * @param string|null  $cardType       examples values: visa, master. bankaya gore zorunlu
+	 *
 	 * @return AbstractCreditCard
 	 */
-	public static function create($data): AbstractCreditCard
-	{
-		$pos = $data['pos']; // PosInterface
-		$number = preg_replace('/\s+/', '', $data['card_number']); // boşluklu veya boşluksuz kredi kartı numarası
-		$expireYear = str_pad($data['card_expiry_year'], 2, '0', STR_PAD_LEFT); // yılı 1, 2 ve 4 haneli olarak kabul eder. (örn: 1, 20, 2020)
-		$expireYear = str_pad($data['card_expiry_year'], 4, '20', STR_PAD_LEFT); // yılı 1, 2 ve 4 haneli olarak kabul eder. (örn: 1, 20, 2020)
-		$expireMonth = str_pad($data['card_expiry_month'], 2, '0', STR_PAD_LEFT); // tek haneli ve çift haneli olarak ay değerlerini kabul eder. (örn: 1, 01, 12)
-		$cvv = $data['card_cvv']; // kart güvenlik kodu
-		$cardHolderName = $data['card_name']; // kart sahibinin adı
-		$cardType = $data['card_type']; // kart tipidir ve bankaya göre zorunludur. (örn: Visa, MasterCard, ...)
-		$expDate = DateTimeImmutable::createFromFormat('Ym', $expireYear . $expireMonth); // kartın son kullanma tarihi
-		if (!$expDate) {
-			throw new DomainException('Geçersiz tarih biçimi!');
+	public static function create(
+		PosInterface $pos,
+		string $number,
+		string $expireYear,
+		string $expireMonth,
+		string $cvv,
+		?string $cardHolderName = null,
+		?string $cardType = null
+	): AbstractCreditCard {
+
+		$number = preg_replace('/\s+/', '', $number);
+		$expireYear =  str_pad($expireYear, 2, '0', STR_PAD_LEFT);
+		$expireYear =  str_pad($expireYear, 4, '20', STR_PAD_LEFT);
+		$expireMonth = str_pad($expireMonth, 2, '0', STR_PAD_LEFT);
+		$expDate  = DateTimeImmutable::createFromFormat('Ymd', $expireYear.$expireMonth.'01');
+
+		if (! $expDate instanceof DateTimeImmutable) {
+			throw new DomainException('INVALID DATE FORMAT');
 		}
+
 		$supportedCardTypes = array_keys($pos->getCardTypeMapping());
-		if (!empty($supportedCardTypes) && empty($cardType)) {
+		if ($supportedCardTypes !== [] && empty($cardType)) {
 			throw new CardTypeRequiredException($pos::NAME);
 		}
-		if (!empty($supportedCardTypes) && !in_array($cardType, $supportedCardTypes)) {
+
+		if ($supportedCardTypes !== [] && !in_array($cardType, $supportedCardTypes)) {
 			throw new CardTypeNotSupportedException($cardType);
 		}
+
 		return new CreditCard($number, $expDate, $cvv, $cardHolderName, $cardType);
 	}
 }

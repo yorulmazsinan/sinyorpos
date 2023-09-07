@@ -1,6 +1,6 @@
 <?php
 
-namespace EceoPos\Exceptions;
+namespace SinyorPos\Exceptions;
 
 use DomainException;
 use Throwable;
@@ -10,15 +10,16 @@ use Throwable;
  */
 class CardTypeNotSupportedException extends DomainException
 {
+	/** @var string */
     private $type;
 
     /**
      * BankNotFoundException yapıcı metodu:
      *
-     * @param  string  $type
-     * @param  string  $message
-     * @param  int  $code
-     * @param  Throwable|null  $previous
+     * @param  string           $type
+     * @param  string           $message
+     * @param  int              $code
+     * @param  Throwable|null   $previous
      */
     public function __construct(string $type, string $message = 'Kart tipi bu ağ geçidi tarafından desteklenmiyor!', int $code = 74, Throwable $previous = null)
     {

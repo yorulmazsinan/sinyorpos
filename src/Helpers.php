@@ -1,15 +1,18 @@
 <?php
 
-use EceoPos\Factory\CreditCardFactory;
-use EceoPos\Factory\PosFactory;
 use Illuminate\Support\Facades\Auth;
-use EceoPos\Factory\AccountFactory;
-use EceoPos\Gateways\AbstractGateway;
+use SinyorPos\Factory\CreditCardFactory;
+use SinyorPos\Factory\PosFactory;
+use SinyorPos\Factory\AccountFactory;
+use SinyorPos\Gateways\AbstractGateway;
+use SinyorPos\PosInterface;
+use SinyorPos\Entity\Card\AbstractCreditCard;
+use SinyorPos\Entity\Account\AbstractPosAccount;
 use App\Models\Order;
 use App\Models\User;
 use App\Models\SiteSetting;
 
-if (! function_exists('checkCardType')) {
+if (!function_exists('checkCardType')) {
 	function checkCardType($number)
 	{
 		$number = str_replace(' ', '', $number);
@@ -33,23 +36,47 @@ if (! function_exists('checkCardType')) {
 		return $type;
 	}
 }
-if (! function_exists('createPosAccount')) {
+if (!function_exists('getGateway')) {
+	function getGateway(AbstractPosAccount $account): PosInterface
+	{
+		try {
+			$handler = new \Monolog\Handler\StreamHandler(__DIR__.'/../var/log/pos.log', \Psr\Log\LogLevel::DEBUG);
+			$logger = new \Monolog\Logger('pos', [$handler]);
+
+			$pos = PosFactory::createPosGateway($account, null, null, $logger);
+			$pos->setTestMode(false);
+
+			return $pos;
+		} catch (Exception $e) {
+			dd($e);
+		}
+	}
+}
+if (!function_exists('createCard')) {
+	function createCard(PosInterface $pos, array $card): AbstractCreditCard
+	{
+		try {
+			return CreditCardFactory::create(
+				$pos,
+				$card['number'],
+				$card['year'],
+				$card['month'],
+				$card['cvc'],
+				$card['name'],
+				$card['type'] ?? null
+			);
+		} catch (Exception $e) {
+			dd($e);
+		}
+	}
+}
+if (!function_exists('createPosAccount')) {
 	function createPosAccount($bank, $status)
 	{
 		$config = require config_path('pos-settings.php'); // Ayarları config/pos-settings.php dosyasından çekiyor. Kurulumdan sonra config/pos-settings.php dosyasını düzenleyin.
 
-		if ($bank == 'halkbank') {
-			$account = AccountFactory::createESTVirtualPosAccount(
-				$bank,
-				$config['banks'][$bank]['accounts'][$status]['client_id'],
-				$config['banks'][$bank]['accounts'][$status]['username'],
-				$config['banks'][$bank]['accounts'][$status]['password'],
-				AbstractGateway::MODEL_3D_SECURE,
-				$config['banks'][$bank]['accounts'][$status]['store_key'],
-				AbstractGateway::LANG_TR
-			);
-		} elseif ($bank == 'akbank') {
-			$account = AccountFactory::createESTVirtualPosAccount(
+		if ($bank == 'akbank') {
+			$account = AccountFactory::createEstPosAccount(
 				$bank,
 				$config['banks'][$bank]['accounts'][$status]['client_id'],
 				$config['banks'][$bank]['accounts'][$status]['username'],
@@ -59,7 +86,7 @@ if (! function_exists('createPosAccount')) {
 				AbstractGateway::LANG_TR
 			);
 		} elseif ($bank == 'isbank') {
-			$account = AccountFactory::createESTVirtualPosAccount(
+			$account = AccountFactory::createEstPosAccount(
 				$bank,
 				$config['banks'][$bank]['accounts'][$status]['client_id'],
 				$config['banks'][$bank]['accounts'][$status]['username'],
@@ -69,7 +96,7 @@ if (! function_exists('createPosAccount')) {
 				AbstractGateway::LANG_TR
 			);
 		} elseif ($bank == 'qnbfinansbank-payfor') {
-			$account = AccountFactory::createPayForVirtualPosAccount(
+			$account = AccountFactory::createPayForAccount(
 				$bank,
 				$config['banks'][$bank]['accounts'][$status]['client_id'],
 				$config['banks'][$bank]['accounts'][$status]['username'],
@@ -78,7 +105,7 @@ if (! function_exists('createPosAccount')) {
 				$config['banks'][$bank]['accounts'][$status]['store_key']
 			);
 		} elseif ($bank == 'garanti') {
-			$account = AccountFactory::createGarantiVirtualPosAccount(
+			$account = AccountFactory::createGarantiPosAccount(
 				$bank,
 				$config['banks'][$bank]['accounts'][$status]['client_id'],
 				$config['banks'][$bank]['accounts'][$status]['username'],
@@ -88,7 +115,7 @@ if (! function_exists('createPosAccount')) {
 				$config['banks'][$bank]['accounts'][$status]['store_key']
 			);
 		} elseif ($bank == 'yapikredi') {
-			$account = AccountFactory::createPosNetVirtualPosAccount(
+			$account = AccountFactory::createPosNetAccount(
 				$bank,
 				$config['banks'][$bank]['accounts'][$status]['merchant_number'],
 				$config['banks'][$bank]['accounts'][$status]['username'],
@@ -107,7 +134,7 @@ if (! function_exists('createPosAccount')) {
 		}
 	}
 }
-if (! function_exists('paymentReadiness')) {
+if (!function_exists('paymentReadiness')) {
 	function paymentReadiness($getOrder = false, $getBankSession = false)
 	{
 		if (Auth::check()) { // Eğer kullanıcı giriş yapmışsa, kullanıcı bilgilerini alıyoruz.
@@ -150,7 +177,7 @@ if (! function_exists('paymentReadiness')) {
 		];
 	}
 }
-if (! function_exists('receivePayment')) {
+if (!function_exists('receivePayment')) {
 	function receivePayment($orderId, $isUser = true, $userInformations = true)
 	{
 		$order = Order::where('payment_id', $orderId)->first(); // Sipariş bilgilerini alıyoruz.

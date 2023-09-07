@@ -1,12 +1,13 @@
 <?php
 
-namespace EceoPos\Exceptions;
+namespace SinyorPos\Exceptions;
 
 use Exception;
 use Throwable;
 
 /**
  * Class BankNotFoundException
+ * @package SinyorPos\Exceptions
  */
 class BankNotFoundException extends Exception
 {
@@ -15,7 +16,7 @@ class BankNotFoundException extends Exception
      *
      * @param  string  $message
      * @param  int  $code
-     * @param  Throwable|null  $previous
+     * @param  Throwable|null $previous
      */
     public function __construct($message = 'Banka bulunamadı!', $code = 330, Throwable $previous = null)
     {

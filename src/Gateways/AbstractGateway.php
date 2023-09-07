@@ -1,93 +1,143 @@
 <?php
-namespace EceoPos\Gateways;
 
-use Psr\Log\LoggerAwareTrait;
+namespace SinyorPos\Gateways;
+
+use SinyorPos\Client\HttpClient;
+use SinyorPos\DataMapper\AbstractRequestDataMapper;
+use SinyorPos\DataMapper\ResponseDataMapper\NonPaymentResponseMapperInterface;
+use SinyorPos\DataMapper\ResponseDataMapper\PaymentResponseMapperInterface;
+use SinyorPos\Entity\Account\AbstractPosAccount;
+use SinyorPos\Entity\Card\AbstractCreditCard;
+use SinyorPos\Exceptions\UnsupportedPaymentModelException;
+use SinyorPos\Exceptions\UnsupportedTransactionTypeException;
+use SinyorPos\PosInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
-use EceoPos\Client\HttpClient;
-use EceoPos\DataMapper\AbstractRequestDataMapper;
-use EceoPos\Entity\Account\AbstractPosAccount;
-use EceoPos\Entity\Card\AbstractCreditCard;
-use EceoPos\Exceptions\UnsupportedPaymentModelException;
-use EceoPos\Exceptions\UnsupportedTransactionTypeException;
-use EceoPos\PosInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Serializer\Encoder\XmlEncoder;
 
+/**
+ * todo we need to update request data code base to return array instead of XML, because some providers does not use
+ * XML. for example createRefundXML() this method will be createRefund() and return array. Then it will be converted to
+ * XML in some other place if needed Class AbstractGateway
+ */
 abstract class AbstractGateway implements PosInterface
 {
-	use LoggerAwareTrait;
-
+	/** @var string */
 	public const LANG_TR = 'tr';
+
+	/** @var string */
 	public const LANG_EN = 'en';
+
+	/** @var string */
 	public const TX_PAY = 'pay';
+
+	/** @var string */
 	public const TX_PRE_PAY = 'pre';
+
+	/** @var string */
 	public const TX_POST_PAY = 'post';
+
+	/** @var string */
 	public const TX_CANCEL = 'cancel';
+
+	/** @var string */
 	public const TX_REFUND = 'refund';
+
+	/** @var string */
 	public const TX_STATUS = 'status';
+
+	/** @var string */
 	public const TX_HISTORY = 'history';
+
+	/** @var string */
 	public const MODEL_3D_SECURE = '3d';
+
+	/** @var string */
 	public const MODEL_3D_PAY = '3d_pay';
+
+	/** @var string */
+	public const MODEL_3D_PAY_HOSTING = '3d_pay_hosting';
+
+	/** @var string */
 	public const MODEL_3D_HOST = '3d_host';
+
+	/** @var string */
 	public const MODEL_NON_SECURE = 'regular';
-	protected const HASH_ALGORITHM = 'sha1';
-	protected const HASH_SEPARATOR = '';
-	protected $cardTypeMapping = [];
+
 	/** @var array */
-	private $config;
+	protected $config;
+
 	/** @var AbstractPosAccount */
 	protected $account;
-	/** @var AbstractCreditCard */
+
+	/** @var AbstractCreditCard|null */
 	protected $card;
+
 	/**
-	 * İşlem Tipi
-	 * @var string
+	 * Transaction Type
+	 *
+	 * @var self::TX_*
 	 */
 	protected $type;
-	/**
-	 * Yinelenen Sipariş Sıklığı Eşlemesi
-	 * @var array
-	 */
-	protected $recurringOrderFrequencyMapping = [];
-	/**
-	 * @var object
-	 */
+
+	/** @var object|null */
 	protected $order;
+
 	/**
-	 * İşlenmiş Yanıt Verileri
-	 * @var object
+	 * Processed Response Data
+	 *
+	 * @var array|null
 	 */
 	protected $response;
+
 	/**
-	 * Ham Yanıt Verileri
-	 * @var object
+	 * Raw Response Data From Bank
+	 *
+	 * @var mixed
 	 */
 	protected $data;
+
 	/** @var HttpClient */
 	protected $client;
+
 	/** @var AbstractRequestDataMapper */
 	protected $requestDataMapper;
+
+	/** @var PaymentResponseMapperInterface&NonPaymentResponseMapperInterface */
+	protected $responseDataMapper;
+
+	/** @var LoggerInterface */
+	protected $logger;
+
+	/** @var bool */
 	private $testMode = false;
 
-	public function __construct(array $config, AbstractPosAccount $account, AbstractRequestDataMapper $requestDataMapper, HttpClient $client, LoggerInterface $logger)
-	{
-		$this->requestDataMapper = $requestDataMapper;
-		$this->cardTypeMapping = $requestDataMapper->getCardTypeMapping();
-		$this->recurringOrderFrequencyMapping = $requestDataMapper->getRecurringOrderFrequencyMapping();
-		$this->config = $config;
+
+	public function __construct(
+		array                          $config,
+		AbstractPosAccount             $account,
+		AbstractRequestDataMapper      $requestDataMapper,
+		PaymentResponseMapperInterface $responseDataMapper,
+		HttpClient                     $client,
+		LoggerInterface                $logger
+	) {
+		$this->requestDataMapper  = $requestDataMapper;
+		$this->responseDataMapper = $responseDataMapper;
+
+		$this->config  = $config;
 		$this->account = $account;
-		$this->client = $client;
-		$this->logger = $logger;
+		$this->client  = $client;
+		$this->logger  = $logger;
 	}
 
 	/**
-	 * {@inheritDoc}
-	 * @return self
+	 * @inheritDoc
 	 */
 	public function prepare(array $order, string $txType, $card = null)
 	{
 		$this->setTxType($txType);
+
 		switch ($txType) {
 			case self::TX_PAY:
 			case self::TX_PRE_PAY:
@@ -109,21 +159,22 @@ abstract class AbstractGateway implements PosInterface
 				$this->order = $this->prepareHistoryOrder($order);
 				break;
 		}
-		$this->logger->log(LogLevel::DEBUG, 'Ağ geçidi ve sipariş hazırlandı.', [$this->order]);
+
+		$this->logger->log(LogLevel::DEBUG, 'gateway prepare - order is prepared', [$this->order]);
+
 		$this->card = $card;
-		return $this;
 	}
 
 	/**
-	 * @return object
+	 * @return array|null
 	 */
-	public function getResponse()
+	public function getResponse(): ?array
 	{
 		return $this->response;
 	}
 
 	/**
-	 * @return array
+	 * @return non-empty-array<string, string>
 	 */
 	public function getCurrencies(): array
 	{
@@ -167,49 +218,34 @@ abstract class AbstractGateway implements PosInterface
 		return $this->order;
 	}
 
+	/**
+	 * @inheritDoc
+	 */
 	public function createXML(array $nodes, string $encoding = 'UTF-8', bool $ignorePiNode = false): string
 	{
 		$rootNodeName = array_keys($nodes)[0];
-		$encoder = new XmlEncoder();
-		$context = [XmlEncoder::ROOT_NODE_NAME => $rootNodeName, XmlEncoder::ENCODING => $encoding];
+		$encoder      = new XmlEncoder();
+		$context      = [
+			XmlEncoder::ROOT_NODE_NAME => $rootNodeName,
+			XmlEncoder::ENCODING       => $encoding,
+		];
 		if ($ignorePiNode) {
-			$context[XmlEncoder::ENCODER_IGNORED_NODE_TYPES] = [XML_PI_NODE];
+			$context[XmlEncoder::ENCODER_IGNORED_NODE_TYPES] = [
+				XML_PI_NODE,
+			];
 		}
+
 		return $encoder->encode($nodes[$rootNodeName], 'xml', $context);
 	}
 
-	public function printData($data): ?string
-	{
-		if ((is_object($data) || is_array($data)) && !count((array)$data)) {
-			$data = null;
-		}
-		return (string)$data;
-	}
-
 	/**
-	 * Başarılı mı?
+	 * Is success
+	 *
 	 * @return bool
 	 */
 	public function isSuccess(): bool
 	{
-		return isset($this->response->status) && 'approved' === $this->response->status;
-	}
-
-	public function isError(): bool
-	{
-		return !$this->isSuccess();
-	}
-
-	/**
-	 * XML dizesini nesneye çevirir.
-	 * @param string $data
-	 * @return object
-	 */
-	public function XMLStringToObject($data)
-	{
-		$encoder = new XmlEncoder();
-		$xml = $encoder->decode($data, 'xml');
-		return (object)json_decode(json_encode($xml));
+		return isset($this->response['status']) && $this->responseDataMapper::TX_APPROVED === $this->response['status'];
 	}
 
 	/**
@@ -233,58 +269,75 @@ abstract class AbstractGateway implements PosInterface
 	 */
 	public function get3DHostGatewayURL(): ?string
 	{
-		return isset($this->config['urls']['gateway_3d_host'][$this->getModeInWord()]) ? $this->config['urls']['gateway_3d_host'][$this->getModeInWord()] : null;
+		return $this->config['urls']['gateway_3d_host'][$this->getModeInWord()] ?? null;
+	}
+
+	/**
+	 * @return string
+	 */
+	public function getQueryAPIUrl(): string
+	{
+		return $this->config['urls']['query'][$this->getModeInWord()] ?? $this->getApiURL();
 	}
 
 	/**
 	 * @return bool
 	 */
-	public function testMode(): bool
+	public function isTestMode(): bool
 	{
 		return $this->testMode;
 	}
 
 	/**
-	 * @param string $txType
+	 * @param self::TX_* $txType
+	 *
 	 * @throws UnsupportedTransactionTypeException
 	 */
 	public function setTxType(string $txType)
 	{
 		$this->requestDataMapper->mapTxType($txType);
+
 		$this->type = $txType;
-		$this->logger->log(LogLevel::DEBUG, 'İşlem türünü ayarla!', [$txType]);
+
+		$this->logger->log(LogLevel::DEBUG, 'set transaction type', [$txType]);
 	}
 
 	/**
-	 * {@inheritDoc}
+	 * @inheritDoc
 	 */
 	public function payment($card = null)
 	{
-		$request = Request::createFromGlobals();
+		$request    = Request::createFromGlobals();
 		$this->card = $card;
+
 		$model = $this->account->getModel();
-		$this->logger->log(LogLevel::DEBUG, 'Ödeme Arandı', ['card_provided' => (bool)$this->card, 'model' => $model]);
+
+		$this->logger->log(LogLevel::DEBUG, 'payment called', [
+			'card_provided' => (bool) $this->card,
+			'model'         => $model,
+		]);
 		if (self::MODEL_NON_SECURE === $model) {
 			$this->makeRegularPayment();
 		} elseif (self::MODEL_3D_SECURE === $model) {
 			$this->make3DPayment($request);
-		} elseif (self::MODEL_3D_PAY === $model) {
+		} elseif (self::MODEL_3D_PAY === $model || self::MODEL_3D_PAY_HOSTING === $model) {
 			$this->make3DPayPayment($request);
 		} elseif (self::MODEL_3D_HOST === $model) {
 			$this->make3DHostPayment($request);
 		} else {
-			$this->logger->log(LogLevel::ERROR, 'Desteklenmeyen Ödeme Modeli', ['model' => $model]);
+			$this->logger->log(LogLevel::ERROR, 'unsupported payment model', ['model' => $model]);
 			throw new UnsupportedPaymentModelException();
 		}
+
 		return $this;
 	}
 
 	/**
-	 * {@inheritDoc}
+	 * @inheritDoc
 	 */
 	public function makeRegularPayment()
 	{
-		$this->logger->log(LogLevel::DEBUG, 'Ödeme Yapmak', [
+		$this->logger->log(LogLevel::DEBUG, 'making payment', [
 			'model'   => $this->account->getModel(),
 			'tx_type' => $this->type,
 		]);
@@ -294,70 +347,91 @@ abstract class AbstractGateway implements PosInterface
 		} elseif (self::TX_POST_PAY === $this->type) {
 			$contents = $this->createRegularPostXML();
 		}
+
 		$bankResponse = $this->send($contents);
-		$this->response = (object)$this->mapPaymentResponse($bankResponse);
+
+		$this->response = $this->responseDataMapper->mapPaymentResponse($bankResponse);
+
 		return $this;
 	}
 
+	/**
+	 * @inheritDoc
+	 */
 	public function refund()
 	{
-		$xml = $this->createRefundXML();
+		$xml          = $this->createRefundXML();
 		$bankResponse = $this->send($xml);
-		$this->response = $this->mapRefundResponse($bankResponse);
+
+		$this->response = $this->responseDataMapper->mapRefundResponse($bankResponse);
+
 		return $this;
 	}
 
+	/**
+	 * @inheritDoc
+	 */
 	public function cancel()
 	{
-		$xml = $this->createCancelXML();
+		$xml          = $this->createCancelXML();
 		$bankResponse = $this->send($xml);
-		$this->response = $this->mapCancelResponse($bankResponse);
+
+		$this->response = $this->responseDataMapper->mapCancelResponse($bankResponse);
+
 		return $this;
 	}
 
+	/**
+	 * @inheritDoc
+	 */
 	public function status()
 	{
 		$xml = $this->createStatusXML();
-		$bankResponse = $this->send($xml);
-		$this->response = $this->mapStatusResponse($bankResponse);
+
+		$bankResponse = $this->send($xml, $this->getQueryAPIUrl());
+		if (!is_array($bankResponse)) {
+			throw new \RuntimeException('Status isteği başarısız');
+		}
+
+		$this->response = $this->responseDataMapper->mapStatusResponse($bankResponse);
+
 		return $this;
 	}
 
+	/**
+	 * @inheritDoc
+	 */
 	public function history(array $meta)
 	{
 		$xml = $this->createHistoryXML($meta);
+
 		$bankResponse = $this->send($xml);
-		$this->response = $this->mapHistoryResponse($bankResponse);
+
+		$this->response = $this->responseDataMapper->mapHistoryResponse($bankResponse);
+
 		return $this;
 	}
 
 	/**
 	 * @param bool $testMode
+	 *
 	 * @return $this
 	 */
 	public function setTestMode(bool $testMode): self
 	{
 		$this->testMode = $testMode;
 		$this->requestDataMapper->setTestMode($testMode);
-		$this->logger->log(LogLevel::DEBUG, 'Anahtarlama Modu', ['mode' => $this->getModeInWord()]);
+		$this->logger->log(LogLevel::DEBUG, 'switching mode', ['mode' => $this->getModeInWord()]);
+
 		return $this;
 	}
 
 	/**
-	 * @param string $period
-	 * @return string
-	 */
-	public function mapRecurringFrequency(string $period): string
-	{
-		return $this->recurringOrderFrequencyMapping[$period] ?? $period;
-	}
-
-	/**
-	 * @return array
+	 * {@inheritDoc}
 	 */
 	public function getCardTypeMapping(): array
 	{
-		return $this->cardTypeMapping;
+		return $this->requestDataMapper->getCardTypeMapping();
 	}
 
 	/**
@@ -369,168 +443,119 @@ abstract class AbstractGateway implements PosInterface
 	}
 
 	/**
-	 * Düzenli ödeme için XML oluşturur.
-	 * @return string
+	 * Create Regular Payment XML
+	 *
+	 * @return string|array
 	 */
 	abstract public function createRegularPaymentXML();
 
 	/**
-	 * Düzenli ödeme sonrası işlem için XML oluşturur.
-	 * @return string
+	 * Create Regular Payment Post XML
+	 *
+	 * @return string|array
 	 */
 	abstract public function createRegularPostXML();
 
 	/**
-	 * Tarih sorgulaması için XML dizesi oluşturur.
+	 * Creates XML string for history inquiry
+	 *
 	 * @param array $customQueryData
-	 * @return string
+	 *
+	 * @return array|string
 	 */
 	abstract public function createHistoryXML($customQueryData);
 
 	/**
-	 * Sipariş durumu sorgulaması için XML dizesi oluşturur.
-	 * @return mixed
+	 * Creates XML string for order status inquiry
+	 * @return array|string
 	 */
 	abstract public function createStatusXML();
 
 	/**
-	 * Sipariş iptal işlemi için XML dizesi oluşturur.
-	 * @return string
+	 * Creates XML string for order cancel operation
+	 * @return array|string
 	 */
 	abstract public function createCancelXML();
 
 	/**
-	 * Sipariş iade işlemi için XML dizesi oluşturur.
-	 * @return mixed
+	 * Creates XML string for order refund operation
+	 * @return array|string
 	 */
 	abstract public function createRefundXML();
 
 	/**
-	 * 3D Ödeme için XML oluşturur.
-	 * @param $responseData
+	 * Creates 3D Payment XML
+	 *
+	 * @param array<string, string> $responseData
+	 *
 	 * @return string|array
 	 */
 	abstract public function create3DPaymentXML($responseData);
 
 	/**
-	 * 3D ödeme için gerekli olan form verilerini ve anahtar değerleri döndürür.
-	 * @return array
+	 * returns form data, key values, necessary for 3D payment
+	 *
+	 * @return array{gateway: string, method: 'POST'|'GET', inputs: array<string, string>}
 	 */
 	abstract public function get3DFormData(): array;
 
 	/**
-	 * Ödeme talebi için siparişi hazırlar.
+	 * prepares order for payment request
+	 *
 	 * @param array $order
+	 *
 	 * @return object
 	 */
 	abstract protected function preparePaymentOrder(array $order);
 
 	/**
-	 * TX_POST_PAY tipindeki talep için siparişi hazırlar.
+	 * prepares order for TX_POST_PAY type request
+	 *
 	 * @param array $order
+	 *
 	 * @return object
 	 */
 	abstract protected function preparePostPaymentOrder(array $order);
 
 	/**
-	 * Sipariş durumu talebi için siparişi hazırlar.
+	 * prepares order for order status request
+	 *
 	 * @param array $order
+	 *
 	 * @return object
 	 */
 	abstract protected function prepareStatusOrder(array $order);
 
 	/**
-	 * Geçmiş siparişler talebi için siparişi hazırlar.
+	 * prepares order for history request
+	 *
 	 * @param array $order
+	 *
 	 * @return object
 	 */
 	abstract protected function prepareHistoryOrder(array $order);
 
 	/**
-	 * İptal talebi için siparişi hazırlar.
+	 * prepares order for cancel request
+	 *
 	 * @param array $order
+	 *
 	 * @return object
 	 */
 	abstract protected function prepareCancelOrder(array $order);
 
 	/**
-	 * İade talebi için siparişi hazırlar.
+	 * prepares order for refund request
+	 *
 	 * @param array $order
+	 *
 	 * @return object
 	 */
 	abstract protected function prepareRefundOrder(array $order);
 
 	/**
-	 * @param array $raw3DAuthResponseData ; 3D kimlik doğrulamasından dönen yanıt.
-	 * @param object|array $rawPaymentResponseData
-	 * @return object
-	 */
-	abstract protected function map3DPaymentData($raw3DAuthResponseData, $rawPaymentResponseData);
-
-	/**
-	 * @param array $raw3DAuthResponseData ; 3D kimlik doğrulamasından dönen yanıt
-	 * @return object
-	 */
-	abstract protected function map3DPayResponseData($raw3DAuthResponseData);
-
-	/**
-	 * Düzenli ödeme yanıtı verilerini işler.
-	 * @param object|array $responseData
-	 * @return array
-	 */
-	abstract protected function mapPaymentResponse($responseData): array;
-
-	/**
-	 * @param $rawResponseData
-	 * @return object
-	 */
-	abstract protected function mapRefundResponse($rawResponseData);
-
-	/**
-	 * @param $rawResponseData
-	 * @return object
-	 */
-	abstract protected function mapCancelResponse($rawResponseData);
-
-	/**
-	 * @param object $rawResponseData
-	 * @return object
-	 */
-	abstract protected function mapStatusResponse($rawResponseData);
-
-	/**
-	 * @param object $rawResponseData
-	 * @return mixed
-	 */
-	abstract protected function mapHistoryResponse($rawResponseData);
-
-	/**
-	 * Ödemedeki varsayılan yanıt verilerini döndürür.
-	 * @return array
-	 */
-	protected function getDefaultPaymentResponse(): array
-	{
-		return [
-			'id'               => null,
-			'order_id'         => null,
-			'trans_id'         => null,
-			'transaction_type' => $this->type,
-			'transaction'      => empty($this->type) ? null : $this->requestDataMapper->mapTxType($this->type),
-			'auth_code'        => null,
-			'host_ref_num'     => null,
-			'proc_return_code' => null,
-			'code'             => null,
-			'status'           => 'declined',
-			'status_detail'    => null,
-			'error_code'       => null,
-			'error_message'    => null,
-			'response'         => null,
-			'all'              => null,
-		];
-	}
-
-	/**
 	 * @param string $str
+	 *
 	 * @return bool
 	 */
 	protected function isHTML($str): bool
@@ -539,69 +564,26 @@ abstract class AbstractGateway implements PosInterface
 	}
 
 	/**
-	 * @param string $str
-	 * @return string
-	 */
-	protected function hashString(string $str): string
-	{
-		return base64_encode(hash(static::HASH_ALGORITHM, $str, true));
-	}
-
-	/**
-	 * Aşağıdaki iki dizinin ortak anahtarı varsa boş olmayan dizinin değerini tercih eder.
-	 * Her iki dizi de aynı anahtar için boş olmayan değerlere sahipse, $arr2 değeri tercih edilir.
-	 * @param array $arr1
-	 * @param array $arr2
-	 * @return array
-	 */
-	protected function mergeArraysPreferNonNullValues(array $arr1, array $arr2): array
-	{
-		$resultArray = array_diff_key($arr1, $arr2) + array_diff_key($arr2, $arr1);
-		$commonArrayKeys = array_keys(array_intersect_key($arr1, $arr2));
-		foreach ($commonArrayKeys as $key) {
-			$resultArray[$key] = $arr2[$key] ? : $arr1[$key];
-		}
-		return $resultArray;
-	}
-
-	/**
-	 * XML dizesini diziye dönüştürür.
+	 * Converts XML string to array
+	 *
 	 * @param string $data
-	 * @param array $context
+	 * @param array  $context
+	 *
 	 * @return array
 	 */
 	protected function XMLStringToArray(string $data, array $context = []): array
 	{
 		$encoder = new XmlEncoder();
+
 		return $encoder->decode($data, 'xml', $context);
 	}
 
 	/**
-	 * Bankadan gelen boş string değerlerini null değerine dönüştürür.
-	 * @param string|object|array $data
-	 * @return string|array
-	 */
-	protected function emptyStringsToNull($data)
-	{
-		$result = [];
-		if (is_string($data)) {
-			$result = '' === $data ? null : $data;
-		} elseif (is_numeric($data)) {
-			$result = $data;
-		} elseif (is_array($data) || is_object($data)) {
-			foreach ($data as $key => $value) {
-				$result[$key] = self::emptyStringsToNull($value);
-			}
-		}
-		return $result;
-	}
-
-	/**
-	 * Dönüş değerlerini yapılandırma dosyasında bir anahtar olarak kullanılır.
+	 * return values are used as a key in config file
 	 * @return string
 	 */
-	private function getModeInWord(): string
+	protected function getModeInWord(): string
 	{
-		return !$this->testMode() ? 'production' : 'test';
+		return $this->isTestMode() ? 'test' : 'production';
 	}
 }
