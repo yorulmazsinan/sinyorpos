@@ -1,12 +1,12 @@
 <?php
 
 return [
-    'currencies' => [ // Para birimleri
+    'currencies' => [
         'TRY' => 949,
         'EUR' => 978,
         'USD' => 840,
     ],
-    'banks' => [ // Bankalar
+    'banks' => [
 		'akbankv3' => [
              'name' => 'Akbank T.A.Ş.',
              'class' => SinyorPos\Gateways\EstV3Pos::class,
@@ -329,7 +329,7 @@ return [
 					'production' => 'https://3dsecure.vakifbank.com.tr:4443/MPIAPI/MPI_Enrollment.aspx',
 					'test' => 'https://3dsecuretest.vakifbank.com.tr:4443/MPIAPI/MPI_Enrollment.aspx',
 				],
-				'query'       => [
+				'query' => [
 					// todo update with the correct ones
 					'production' => 'https://sanalpos.vakifbank.com.tr/v4/UIWebService/Search.aspx',
 					'test' => 'https://sanalpos.vakifbank.com.tr/v4/UIWebService/Search.aspx',
