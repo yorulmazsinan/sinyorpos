@@ -200,7 +200,7 @@ if (!function_exists('receivePayment')) {
 		$orderInformations = json_decode($order->buying_informations, true)['order']; // Sipariş bilgilerini alıyoruz.
 		$cardInformations = json_decode($order->buying_informations, true)['card']; // Kart bilgilerini alıyoruz.
 
-		$card = createCard($pos, $cardInformations['card']); // Kart bilgilerini oluşturuyoruz.
+		$card = createCard($pos, $cardInformations); // Kart bilgilerini oluşturuyoruz.
 
 		$pos->prepare($orderInformations, AbstractGateway::TX_PAY); // Ödeme için hazırlık yapıyoruz.
 
