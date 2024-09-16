@@ -1,19 +1,23 @@
 <?php
-
 /**
  * @license MIT
  */
+
 namespace SinyorPos\Gateways;
 
 use LogicException;
+use SinyorPos\Entity\Account\AbstractPosAccount;
 use SinyorPos\Entity\Account\EstPosAccount;
+use SinyorPos\Entity\Card\CreditCardInterface;
+use SinyorPos\Event\RequestDataPreparedEvent;
 use SinyorPos\Exceptions\HashMismatchException;
+use SinyorPos\Exceptions\UnsupportedTransactionTypeException;
+use SinyorPos\PosInterface;
 use Psr\Log\LogLevel;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * todo cardType verisi dokumantasyona gore kontrol edilmesi gerekiyor.
- * cardType gondermeden de su an calisiyor.
+ * Implementation of Payten Payment Gateway
  *
  * @deprecated use SinyorPos\Gateways\EstV3Pos.
  * For security reasons this class which uses sha1 hashing algorithm is not recommended to use.
@@ -24,11 +28,9 @@ class EstPos extends AbstractGateway
     public const NAME = 'EstPos';
 
     /** @var EstPosAccount */
-    protected $account;
+	protected $account;
 
-    /**
-     * @inheritDoc
-     */
+	/** @inheritdoc */
     public function createXML(array $nodes, string $encoding = 'ISO-8859-9', bool $ignorePiNode = false): string
     {
         return parent::createXML(['CC5Request' => $nodes], $encoding, $ignorePiNode);
@@ -73,7 +75,7 @@ class EstPos extends AbstractGateway
         if (!$this->requestDataMapper->getCrypt()->check3DHash($this->account, $request->request->all())) {
             throw new HashMismatchException();
         }
-        
+
         $this->response = $this->responseDataMapper->map3DPayResponseData($request->request->all());
 
         return $this;
@@ -87,7 +89,7 @@ class EstPos extends AbstractGateway
         if (!$this->requestDataMapper->getCrypt()->check3DHash($this->account, $request->request->all())) {
             throw new HashMismatchException();
         }
-        
+
         $this->response = $this->responseDataMapper->map3DHostResponseData($request->request->all());
 
         return $this;
@@ -103,7 +105,7 @@ class EstPos extends AbstractGateway
 
             throw new LogicException('Kredi kartı veya sipariş bilgileri eksik!');
         }
-        
+
         $this->logger->log(LogLevel::DEBUG, 'preparing 3D form data');
 
         return $this->requestDataMapper->create3DFormData($this->account, $this->order, $this->type, $this->get3DGatewayURL(), $this->card);
