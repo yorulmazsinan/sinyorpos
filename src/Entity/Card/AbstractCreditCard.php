@@ -1,4 +1,7 @@
 <?php
+/**
+ * @license MIT
+ */
 
 namespace SinyorPos\Entity\Card;
 
@@ -7,43 +10,26 @@ use DateTimeImmutable;
 /**
  * Class AbstractCreditCard
  */
-abstract class AbstractCreditCard
+abstract class AbstractCreditCard implements CreditCardInterface
 {
-	/** @var string */
-	public const CARD_TYPE_VISA = 'visa';
-
-	/** @var string */
-	public const CARD_TYPE_MASTERCARD = 'master';
-
-	/** @var string */
-	public const CARD_TYPE_AMEX = 'amex';
-
-	/** @var string */
-	public const CARD_TYPE_TROY = 'troy';
-
 	/**
 	 * 16 digit credit card number without spaces
-	 * @var string
 	 */
-	protected $number;
+	protected string $number;
 
-	/** @var DateTimeImmutable */
-	protected $expDate;
+	protected DateTimeImmutable $expDate;
 
-	/** @var string */
-	protected $cvv;
+	protected string $cvv;
 
-	/** @var string|null */
-	protected $holderName;
+	protected ?string $holderName;
 
 	/**
-	 * visa, master, troy, amex, ...
-	 * @var string|null
+	 * @phpstan-var CreditCardInterface::CARD_TYPE_*
 	 */
-	protected $type;
+	protected ?string $type;
 
 	/**
-	 * AbstractCreditCard constructor.
+	 * @phpstan-param CreditCardInterface::CARD_TYPE_*|null $cardType
 	 *
 	 * @param string            $number   credit card number with or without spaces
 	 * @param DateTimeImmutable $expDate
@@ -51,10 +37,16 @@ abstract class AbstractCreditCard
 	 * @param string|null       $cardHolderName
 	 * @param string|null       $cardType examples values: 'visa', 'master', '1', '2'
 	 *
+	 * @throws \LogicException
 	 */
 	public function __construct(string $number, DateTimeImmutable $expDate, string $cvv, ?string $cardHolderName = null, ?string $cardType = null)
 	{
-		$this->number     = preg_replace('/\s+/', '', $number);
+		$number = \preg_replace('/\s+/', '', $number);
+		if (null === $number) {
+			throw new \LogicException('Kredit numarası formatlanamadı!');
+		}
+
+		$this->number     = $number;
 		$this->expDate    = $expDate;
 		$this->cvv        = $cvv;
 		$this->holderName = $cardHolderName;
@@ -62,8 +54,7 @@ abstract class AbstractCreditCard
 	}
 
 	/**
-	 * returns card number without white spaces
-	 * @return string
+	 * @inheritDoc
 	 */
 	public function getNumber(): string
 	{
@@ -71,11 +62,7 @@ abstract class AbstractCreditCard
 	}
 
 	/**
-	 * returns exp year in 2 digit format
-	 *
-	 * @param string $format
-	 *
-	 * @return string
+	 * @inheritDoc
 	 */
 	public function getExpireYear(string $format = 'y'): string
 	{
@@ -83,11 +70,7 @@ abstract class AbstractCreditCard
 	}
 
 	/**
-	 * returns exp year in 2 digit format. i.e '01' '02' '12'
-	 *
-	 * @param string $format
-	 *
-	 * @return string
+	 * @inheritDoc
 	 */
 	public function getExpireMonth(string $format = 'm'): string
 	{
@@ -95,11 +78,7 @@ abstract class AbstractCreditCard
 	}
 
 	/**
-	 * returns card exp date month and year combined.
-	 *
-	 * @param string $format
-	 *
-	 * @return string
+	 * @inheritDoc
 	 */
 	public function getExpirationDate(string $format = 'ym'): string
 	{
@@ -107,7 +86,7 @@ abstract class AbstractCreditCard
 	}
 
 	/**
-	 * @return string
+	 * @inheritDoc
 	 */
 	public function getCvv(): string
 	{
@@ -115,7 +94,7 @@ abstract class AbstractCreditCard
 	}
 
 	/**
-	 * @return string|null
+	 * @inheritDoc
 	 */
 	public function getHolderName(): ?string
 	{
@@ -123,15 +102,17 @@ abstract class AbstractCreditCard
 	}
 
 	/**
-	 * @param string|null $name
+	 * @inheritDoc
 	 */
-	public function setHolderName(?string $name)
+	public function setHolderName(?string $name): CreditCardInterface
 	{
 		$this->holderName = $name;
+
+		return $this;
 	}
 
 	/**
-	 * @return string|null
+	 * @inheritDoc
 	 */
 	public function getType(): ?string
 	{

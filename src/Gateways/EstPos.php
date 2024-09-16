@@ -28,7 +28,7 @@ class EstPos extends AbstractGateway
     public const NAME = 'EstPos';
 
     /** @var EstPosAccount */
-	protected $account;
+	protected AbstractPosAccount $account;
 
 	/** @inheritdoc */
     public function createXML(array $nodes, string $encoding = 'ISO-8859-9', bool $ignorePiNode = false): string

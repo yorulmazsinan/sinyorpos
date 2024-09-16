@@ -2,6 +2,7 @@
 /**
  * @license MIT
  */
+
 namespace SinyorPos\Entity\Account;
 
 /**
@@ -9,42 +10,30 @@ namespace SinyorPos\Entity\Account;
  */
 class PosNetAccount extends AbstractPosAccount
 {
-    /** @var string */
-    private $terminalId;
+	public function __construct(
+		string $bank,
+		string $clientId,
+		string $posNetId,
+		string $terminalId,
+		string $lang,
+		?string $storeKey = null
+	) {
+		parent::__construct($bank, $clientId, $posNetId, $terminalId, $lang, $storeKey);
+	}
 
-    /** @var string */
-    private $posNetId;
+	/**
+	 * @return string
+	 */
+	public function getTerminalId(): string
+	{
+		return $this->password;
+	}
 
-    public function __construct(
-        string $bank,
-        string $model,
-        string $clientId,
-        string $username,
-        string $password,
-        string $lang,
-        string $terminalId,
-        string $posNetId,
-        ?string $storeKey = null
-    ) {
-        parent::__construct($bank, $model, $clientId, $username, $password, $lang, $storeKey);
-        $this->model = $model;
-        $this->terminalId = $terminalId;
-        $this->posNetId = $posNetId;
-    }
-
-    /**
-     * @return string
-     */
-    public function getTerminalId(): string
-    {
-        return $this->terminalId;
-    }
-
-    /**
-     * @return string
-     */
-    public function getPosNetId(): string
-    {
-        return $this->posNetId;
-    }
+	/**
+	 * @return string
+	 */
+	public function getPosNetId(): string
+	{
+		return $this->username;
+	}
 }

@@ -1,4 +1,7 @@
 <?php
+/**
+ * @license MIT
+ */
 
 namespace SinyorPos\Exceptions;
 
@@ -7,19 +10,18 @@ use Throwable;
 
 /**
  * Class BankClassNullException
- * @package SinyorPos\Exceptions
  */
 class BankClassNullException extends Exception
 {
-    /**
-     * BankClassNullException yapıcı metodu:
-     *
-     * @param  string  $message
-     * @param  int  $code
-     * @param  Throwable|null $previous
-     */
-    public function __construct($message = 'Sınıf belirtilmelidir!', $code = 331, Throwable $previous = null)
-    {
-        parent::__construct($message, $code, $previous);
-    }
+	/**
+	 * BankClassNullException constructor.
+	 *
+	 * @param string         $message
+	 * @param int            $code
+	 * @param Throwable|null $previous
+	 */
+	public function __construct(string $message = 'Class must be specified!', int $code = 331, Throwable $previous = null)
+	{
+		parent::__construct($message, $code, $previous);
+	}
 }
