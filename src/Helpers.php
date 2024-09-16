@@ -37,13 +37,13 @@ if (!function_exists('checkCardType')) {
 	}
 }
 if (!function_exists('getGateway')) {
-	function getGateway(AbstractPosAccount $account): PosInterface
+	function getGateway(AbstractPosAccount $account, \Psr\EventDispatcher\EventDispatcherInterface $eventDispatcher): PosInterface
 	{
 		try {
 			$handler = new \Monolog\Handler\StreamHandler(__DIR__.'/../var/log/pos.log', \Psr\Log\LogLevel::DEBUG);
 			$logger = new \Monolog\Logger('pos', [$handler]);
 
-			$pos = PosFactory::createPosGateway($account, [], null, $logger);
+			$pos = PosFactory::createPosGateway($account, [],  $eventDispatcher, $logger);
 			$pos->setTestMode(false);
 
 			return $pos;
