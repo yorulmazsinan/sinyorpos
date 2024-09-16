@@ -23,10 +23,10 @@ return [
 				    'store_key' => '',
 			    ],
 			    'production' => [
-				    'client_id' => '',
-				    'username' => '',
-				    'password' => '',
-				    'store_key' => '',
+				    'client_id' => '101849366',
+				    'username' => 'eceo',
+				    'password' => 'TEST1234',
+				    'store_key' => 'sCeQ!$KeAUJv4DBB',
 			    ],
 		    ],
 	    ],
@@ -46,10 +46,10 @@ return [
 				    'store_key' => '',
 			    ],
 			    'production' => [
-				    'client_id' => '',
-				    'username' => '',
-				    'password' => '',
-				    'store_key' => '',
+				    'client_id' => '101849366',
+				    'username' => 'eceo',
+				    'password' => 'TEST1234',
+				    'store_key' => 'sCeQ!$KeAUJv4DBB',
 			    ],
 		    ],
 	    ],
@@ -69,10 +69,10 @@ return [
 				    'store_key' => '',
 			    ],
 			    'production' => [
-				    'client_id' => '',
-				    'username' => '',
-				    'password' => '',
-				    'store_key' => '',
+				    'client_id' => '101849366',
+				    'username' => 'eceo',
+				    'password' => 'TEST1234',
+				    'store_key' => 'sCeQ!$KeAUJv4DBB',
 			    ],
 		    ],
 	    ],
@@ -172,6 +172,20 @@ return [
 			    'payment_api'     => 'https://sanalpos.isbank.com.tr/fim/api',
 			    'gateway_3d'      => 'https://sanalpos.isbank.com.tr/fim/est3Dgate',
 		    ],
+		    'accounts' => [
+			    'test' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+			    'production' => [
+				    'client_id' => '700668156607',
+				    'username' => 'eceo',
+				    'password' => 'LLr0FUJlIdAnrBu',
+				    'store_key' => 'OJCl2sOFGoPzHLt',
+			    ],
+		    ],
 	    ],
 	    'sekerbank'            => [
 		    'name'  => 'Şeker Bank',
@@ -179,6 +193,20 @@ return [
 		    'gateway_endpoints'  => [
 			    'payment_api'     => 'https://sanalpos.sekerbank.com.tr/fim/api',
 			    'gateway_3d'      => 'https://sanalpos.sekerbank.com.tr/fim/est3Dgate',
+		    ],
+		    'accounts' => [
+			    'test' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+			    'production' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
 		    ],
 	    ],
 	    'yapikredi'            => [
@@ -188,6 +216,24 @@ return [
 			    'payment_api'     => 'https://posnet.yapikredi.com.tr/PosnetWebService/XML',
 			    'gateway_3d'      => 'https://posnet.yapikredi.com.tr/3DSWebService/YKBPaymentService',
 		    ],
+		    'accounts' => [
+			    'test' => [
+				    'merchant_number' => '',
+				    'posnet_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'enc_key' => '',
+				    'terminal_number' => '',
+			    ],
+			    'production' => [
+				    'merchant_number' => '6701387648',
+				    'posnet_id' => '398705',
+				    'username' => '3748',
+				    'password' => '240024',
+				    'enc_key' => '6,113,9,92,26,46,4,34',
+				    'terminal_number' => '67932233',
+			    ],
+		    ],
 	    ],
 	    'albaraka'             => [
 		    'name'  => 'Albaraka',
@@ -196,6 +242,20 @@ return [
 			    'payment_api'     => 'https://epos.albarakaturk.com.tr/ALBMerchantService/MerchantJSONAPI.svc',
 			    'gateway_3d'      => 'https://epos.albarakaturk.com.tr/ALBSecurePaymentUI/SecureProcess/SecureVerification.aspx',
 		    ],
+		    'accounts' => [
+			    'test' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+			    'production' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+		    ],
 	    ],
 	    'garanti'              => [
 		    'name'  => 'Garanti',
@@ -203,6 +263,22 @@ return [
 		    'gateway_endpoints'  => [
 			    'payment_api'     => 'https://sanalposprov.garanti.com.tr/VPServlet',
 			    'gateway_3d'      => 'https://sanalposprov.garanti.com.tr/servlet/gt3dengine',
+		    ],
+		    'accounts' => [
+			    'test' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+				    'terminal_number' => '',
+			    ],
+			    'production' => [
+				    'client_id' => '374888',
+				    'username' => 'PROVAUT',
+				    'password' => 'AAbb246.',
+				    'store_key' => '56487274346f45507169685461784d7130475134556b524e',
+				    'terminal_number' => '10157198',
+			    ],
 		    ],
 	    ],
 	    'qnbfinansbank-payfor' => [
@@ -213,6 +289,20 @@ return [
 			    'gateway_3d'      => 'https://vpos.qnbfinansbank.com/Gateway/Default.aspx',
 			    'gateway_3d_host' => 'https://vpos.qnbfinansbank.com/Gateway/3DHost.aspx',
 		    ],
+		    'accounts' => [
+			    'test' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+			    'production' => [
+				    'client_id' => '105500000008303',
+				    'username' => 'eceo',
+				    'password' => 'c6Qam',
+				    'store_key' => '88342023',
+			    ],
+		    ],
 	    ],
 	    'vakifbank'            => [
 		    'name'  => 'VakifBank-VPOS',
@@ -221,6 +311,20 @@ return [
 			    'payment_api'     => 'https://onlineodeme.vakifbank.com.tr:4443/VposService/v3/Vposreq.aspx',
 			    'gateway_3d'      => 'https://3dsecure.vakifbank.com.tr:4443/MPIAPI/MPI_Enrollment.aspx',
 			    'query_api'       => 'https://onlineodeme.vakifbank.com.tr:4443/UIService/Search.aspx',
+		    ],
+		    'accounts' => [
+			    'test' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+			    'production' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
 		    ],
 	    ],
 	    'ziraat-vpos'          => [
@@ -231,6 +335,20 @@ return [
 			    'gateway_3d'      => 'https://mpi.ziraatbank.com.tr/Enrollment.aspx',
 			    'query_api'       => 'https://sanalpos.ziraatbank.com.tr/v4/UIWebService/Search.aspx',
 		    ],
+		    'accounts' => [
+			    'test' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+			    'production' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+		    ],
 	    ],
 	    'ziraat-estpos'          => [
 		    'name'  => 'Ziraat Bankası Payten',
@@ -238,6 +356,20 @@ return [
 		    'gateway_endpoints'  => [
 			    'payment_api'     => 'https://sanalpos2.ziraatbank.com.tr/fim/api',
 			    'gateway_3d'      => 'https://sanalpos2.ziraatbank.com.tr/fim/est3Dgate',
+		    ],
+		    'accounts' => [
+			    'test' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+			    'production' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
 		    ],
 	    ],
 	    'vakifbank-cp'         => [
@@ -248,6 +380,20 @@ return [
 			    'gateway_3d'  => 'https://cpweb.vakifbank.com.tr/CommonPayment/SecurePayment',
 			    'query_api'   => 'https://cpweb.vakifbank.com.tr/CommonPayment/api/VposTransaction',
 		    ],
+		    'accounts' => [
+			    'test' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+			    'production' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+		    ],
 	    ],
 	    'denizbank'            => [
 		    'name'  => 'DenizBank-InterPos',
@@ -256,6 +402,20 @@ return [
 			    'payment_api'     => 'https://inter-vpos.com.tr/mpi/Default.aspx',
 			    'gateway_3d'      => 'https://inter-vpos.com.tr/mpi/Default.aspx',
 			    'gateway_3d_host' => 'https://inter-vpos.com.tr/mpi/3DHost.aspx',
+		    ],
+		    'accounts' => [
+			    'test' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+			    'production' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
 		    ],
 	    ],
 	    'kuveytpos'            => [
@@ -266,6 +426,20 @@ return [
 			    'gateway_3d'  => 'https://sanalpos.kuveytturk.com.tr/ServiceGateWay/Home/ThreeDModelPayGate',
 			    'query_api'   => 'https://boa.kuveytturk.com.tr/BOA.Integration.WCFService/BOA.Integration.VirtualPos/VirtualPosService.svc?wsdl',
 		    ],
+		    'accounts' => [
+			    'test' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+			    'production' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+		    ],
 	    ],
 	    'vakif-katilim' => [
 		    'name'              => 'Vakıf Katılım',
@@ -274,6 +448,20 @@ return [
 			    'payment_api'     => 'https://boa.vakifkatilim.com.tr/VirtualPOS.Gateway/Home',
 			    'gateway_3d'      => 'https://boa.vakifkatilim.com.tr/VirtualPOS.Gateway/Home/ThreeDModelPayGate',
 			    'gateway_3d_host' => 'https://boa.vakifkatilim.com.tr/VirtualPOS.Gateway/CommonPaymentPage/CommonPaymentPage',
+		    ],
+		    'accounts' => [
+			    'test' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
+			    'production' => [
+				    'client_id' => '',
+				    'username' => '',
+				    'password' => '',
+				    'store_key' => '',
+			    ],
 		    ],
 	    ],
     ],
