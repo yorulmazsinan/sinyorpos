@@ -53,7 +53,7 @@ if (!function_exists('getGateway')) {
 	}
 }
 if (!function_exists('createCard')) {
-	function createCard(PosInterface $pos, array $card): AbstractCreditCard
+	function createCard(PosInterface $pos, array $card): \SinyorPos\Entity\Card\CreditCardInterface
 	{
 		try {
 			return CreditCardFactory::create(
@@ -65,7 +65,13 @@ if (!function_exists('createCard')) {
 				$card['name'],
 				$card['type'] ?? null
 			);
-		} catch (Exception $e) {
+		} catch (\SinyorPos\Exceptions\CardTypeRequiredException $e) {
+			// bu gateway için kart tipi zorunlu
+			dd($e);
+		} catch (\SinyorPos\Exceptions\CardTypeNotSupportedException $e) {
+			// sağlanan kart tipi bu gateway tarafından desteklenmiyor
+			dd($e);
+		} catch (\Exception $e) {
 			dd($e);
 		}
 	}
@@ -208,9 +214,9 @@ if (!function_exists('receivePayment')) {
 
 		$card = createCard($pos, $cardInformations); // Kart bilgilerini oluşturuyoruz.
 
-		$pos->prepare($orderInformations, AbstractGateway::TX_PAY); // Ödeme için hazırlık yapıyoruz.
+		$pos->prepare($orderInformations, AbstractGateway::TX_TYPE_PAY_AUTH); // Ödeme için hazırlık yapıyoruz.
 
-		if ($pos->getAccount()->getModel() === AbstractGateway::MODEL_NON_SECURE && AbstractGateway::TX_POST_PAY !== AbstractGateway::TX_PAY) {
+		if ($pos->getAccount()->getModel() === AbstractGateway::MODEL_NON_SECURE && AbstractGateway::TX_TYPE_PAY_POST_AUTH !== AbstractGateway::TX_TYPE_PAY_AUTH) {
 			$pos->payment($card);
 		} else {
 			$pos->payment();

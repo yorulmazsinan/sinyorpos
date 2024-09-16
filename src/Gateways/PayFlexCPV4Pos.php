@@ -2,18 +2,22 @@
 /**
  * @license MIT
  */
+
 namespace SinyorPos\Gateways;
 
-use Exception;
-use LogicException;
-use SinyorPos\DataMapper\PayFlexCPV4PosRequestDataMapper;
+use SinyorPos\DataMapper\RequestDataMapper\PayFlexCPV4PosRequestDataMapper;
+use SinyorPos\DataMapper\RequestDataMapper\RequestDataMapperInterface;
 use SinyorPos\DataMapper\ResponseDataMapper\PayFlexCPV4PosResponseDataMapper;
+use SinyorPos\DataMapper\ResponseDataMapper\ResponseDataMapperInterface;
+use SinyorPos\Entity\Account\AbstractPosAccount;
 use SinyorPos\Entity\Account\PayFlexAccount;
-use SinyorPos\Exceptions\NotImplementedException;
+use SinyorPos\Entity\Card\CreditCardInterface;
+use SinyorPos\Event\RequestDataPreparedEvent;
 use SinyorPos\Exceptions\UnsupportedPaymentModelException;
-use Psr\Log\LogLevel;
+use SinyorPos\Exceptions\UnsupportedTransactionTypeException;
+use SinyorPos\PosInterface;
+use Psr\Http\Client\ClientExceptionInterface;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\Serializer\Exception\NotEncodableValueException;
 
 /**
  * PayFlex Common Payment (Ortak Ödeme) ISD v4.0
@@ -25,38 +29,56 @@ class PayFlexCPV4Pos extends AbstractGateway
     public const NAME = 'PayFlex-Common-Payment-V4';
 
     /** @var PayFlexAccount */
-    protected $account;
+    protected AbstractPosAccount $account;
 
     /** @var PayFlexCPV4PosRequestDataMapper */
-    protected $requestDataMapper;
+    protected RequestDataMapperInterface $requestDataMapper;
 
     /** @var PayFlexCPV4PosResponseDataMapper */
-    protected $responseDataMapper;
+    protected ResponseDataMapperInterface $responseDataMapper;
+
+    /** @inheritdoc */
+    protected static array $supportedTransactions = [
+        PosInterface::TX_TYPE_PAY_AUTH       => [
+            PosInterface::MODEL_3D_PAY,
+            PosInterface::MODEL_3D_HOST,
+            PosInterface::MODEL_NON_SECURE,
+        ],
+        PosInterface::TX_TYPE_PAY_PRE_AUTH   => true,
+        PosInterface::TX_TYPE_PAY_POST_AUTH  => true,
+        PosInterface::TX_TYPE_STATUS         => false,
+        PosInterface::TX_TYPE_CANCEL         => true,
+        PosInterface::TX_TYPE_REFUND         => true,
+        PosInterface::TX_TYPE_REFUND_PARTIAL => true,
+        PosInterface::TX_TYPE_HISTORY        => false,
+        PosInterface::TX_TYPE_ORDER_HISTORY  => false,
+    ];
 
     /** @return PayFlexAccount */
-    public function getAccount(): PayFlexAccount
+    public function getAccount(): AbstractPosAccount
     {
         return $this->account;
     }
 
     /**
-     * todo implement
      * @inheritDoc
      */
-    public function make3DPayment(Request $request)
+    public function make3DPayment(Request $request, array $order, string $txType, CreditCardInterface $creditCard = null): PosInterface
     {
         throw new UnsupportedPaymentModelException();
     }
 
     /**
      * @inheritDoc
+     *
+     * @throws ClientExceptionInterface
      */
-    public function make3DPayPayment(Request $request): self
+    public function make3DPayPayment(Request $request, array $order, string $txType): PosInterface
     {
         $resultCode = $request->query->get('Rc');
         if (null !== $resultCode && $this->responseDataMapper::PROCEDURE_SUCCESS_CODE !== $resultCode) {
             $this->logger->error('received error response from the bank', $request->query->all());
-            $this->response = $this->responseDataMapper->map3DPayResponseData($request->query->all());
+            $this->response = $this->responseDataMapper->map3DPayResponseData($request->query->all(), $txType, $order);
 
             return $this;
         }
@@ -64,7 +86,28 @@ class PayFlexCPV4Pos extends AbstractGateway
         /** @var array{TransactionId: string, PaymentToken: string} $queryParams */
         $queryParams = $request->query->all();
 
-        $statusRequestData = $this->requestDataMapper->create3DPaymentStatusRequestData($this->account, $queryParams);
+        // Burda odemenin basarili olup olmadigini sorguluyoruz.
+        $requestData = $this->requestDataMapper->create3DPaymentStatusRequestData($this->account, $queryParams);
+
+        $event = new RequestDataPreparedEvent(
+            $requestData,
+            $this->account->getBank(),
+            $txType,
+            \get_class($this),
+            $order,
+            PosInterface::MODEL_3D_PAY
+        );
+        $this->eventDispatcher->dispatch($event);
+        if ($requestData !== $event->getRequestData()) {
+            $this->logger->debug('Request data is changed via listeners', [
+                'txType'      => $event->getTxType(),
+                'bank'        => $event->getBank(),
+                'initialData' => $requestData,
+                'updatedData' => $event->getRequestData(),
+            ]);
+            $requestData = $event->getRequestData();
+        }
+
         /**
          * sending request to make sure that payment was successful
          * @var array{ErrorCode: string}|array{
@@ -76,59 +119,74 @@ class PayFlexCPV4Pos extends AbstractGateway
          *     Rc: string,
          *     Message: string,
          *     TransactionId: string,
-         *     PaymentToken: string} $bankResponse */
-        $bankResponse = $this->send($statusRequestData, $this->getQueryAPIUrl());
+         *     PaymentToken: string} $bankResponse
+         */
+        $bankResponse = $this->send(
+            $requestData,
+            PosInterface::TX_TYPE_PAY_AUTH,
+            PosInterface::MODEL_3D_SECURE,
+            $this->getQueryAPIUrl()
+        );
 
-        $this->response = $this->responseDataMapper->map3DPayResponseData($bankResponse);
+        $this->response = $this->responseDataMapper->map3DPayResponseData($bankResponse, $txType, $order);
 
-        $this->logger->log(LogLevel::DEBUG, 'finished 3D payment', ['mapped_response' => $this->response]);
+        $this->logger->debug('finished 3D payment', ['mapped_response' => $this->response]);
 
         return $this;
     }
 
     /**
      * @inheritDoc
+     *
+     * @throws ClientExceptionInterface
      */
-    public function make3DHostPayment(Request $request): self
+    public function make3DHostPayment(Request $request, array $order, string $txType): PosInterface
     {
-        return $this->make3DPayPayment($request);
+        return $this->make3DPayPayment($request, $order, $txType);
     }
 
     /**
-     * TODO implement
      * @inheritDoc
      */
-    public function history(array $meta)
+    public function status(array $order): PosInterface
     {
-        throw new UnsupportedPaymentModelException();
+        throw new UnsupportedTransactionTypeException();
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function history(array $data): PosInterface
+    {
+        throw new UnsupportedTransactionTypeException();
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function orderHistory(array $order): PosInterface
+    {
+        throw new UnsupportedTransactionTypeException();
     }
 
     /**
      * {@inheritDoc}
      */
-    public function get3DFormData(): array
+    public function get3DFormData(array $order, string $paymentModel, string $txType, CreditCardInterface $creditCard = null): array
     {
-        if (null === $this->order) {
-            $this->logger->log(LogLevel::ERROR, 'tried to get 3D form data without setting order', [
-                'order' => $this->order,
-                'card_provided' => (bool) $this->card,
-            ]);
-
-            throw new LogicException('Sipariş bilgileri eksik!');
-        }
-
         /** @var array{CommonPaymentUrl: string|null, PaymentToken: string|null, ErrorCode: string|null, ResponseMessage: string|null} $data */
-        $data = $this->registerPayment();
+        $data = $this->registerPayment($order, $txType, $paymentModel, $creditCard);
 
         if (null !== $data['ErrorCode']) {
-            $this->logger->log(LogLevel::ERROR, 'payment register fail response', $data);
-            throw new Exception('İşlem gerçekleştirilemiyor');
+            $this->logger->error('payment register fail response', $data);
+            throw new \RuntimeException('İşlem gerçekleştirilemiyor');
         }
 
-        $this->logger->log(LogLevel::DEBUG, 'preparing 3D form data');
+        $this->logger->debug('preparing 3D form data');
 
         return $this->requestDataMapper->create3DFormData(
             null,
+            [],
             null,
             null,
             null,
@@ -139,206 +197,82 @@ class PayFlexCPV4Pos extends AbstractGateway
 
     /**
      * @inheritDoc
+     *
+     * @return array<string, mixed>
      */
-    public function createXML(array $nodes, string $encoding = 'UTF-8', bool $ignorePiNode = true): string
+    protected function send($contents, string $txType, string $paymentModel, string $url): array
     {
-        return parent::createXML(['VposRequest' => $nodes], $encoding, $ignorePiNode);
-    }
+        $this->logger->debug('sending request', ['url' => $url]);
 
-    /**
-     * @inheritDoc
-     */
-    public function send($contents, ?string $url = null)
-    {
-        $url = $url ?? $this->getApiURL();
-        $this->logger->log(LogLevel::DEBUG, 'sending request', ['url' => $url]);
-
-        $isXML = is_string($contents);
-        $body = $isXML ? ['body' => $contents] : ['form_params' => $contents];
+        $isXML = \is_string($contents);
+        $body  = $isXML ? ['body' => $contents] : ['form_params' => $contents];
 
         $response = $this->client->post($url, $body);
-        $this->logger->log(LogLevel::DEBUG, 'request completed', ['status_code' => $response->getStatusCode()]);
+        $this->logger->debug('request completed', ['status_code' => $response->getStatusCode()]);
 
-        $responseBody = $response->getBody()->getContents();
+        $responseContent = $response->getBody()->getContents();
 
-        try {
-            $this->data = $this->XMLStringToArray($responseBody);
-        } catch (NotEncodableValueException $notEncodableValueException) {
-            if ($this->isHTML($responseBody)) {
-                // if something wrong server responds with HTML content
-                throw new Exception($responseBody, $notEncodableValueException->getCode(), $notEncodableValueException);
-            }
-
-            $this->data = json_decode($responseBody, true);
-        }
-
-        return $this->data;
+        return $this->data = $this->serializer->decode($responseContent, $txType);
     }
 
     /**
-     * @inheritDoc
-     */
-    public function createRegularPaymentXML()
-    {
-        $requestData = $this->requestDataMapper->createNonSecurePaymentRequestData($this->account, $this->order, $this->type, $this->card);
-
-        return $this->createXML($requestData);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function createRegularPostXML()
-    {
-        if (null === $this->order) {
-            throw new LogicException('sipariş bilgileri eksik!');
-        }
-
-        $requestData = $this->requestDataMapper->createNonSecurePostAuthPaymentRequestData($this->account, $this->order);
-
-        return $this->createXML($requestData);
-    }
-
-    /**
-     * TODO implement
-     * @inheritDoc
-     */
-    public function create3DPaymentXML($responseData)
-    {
-        throw new NotImplementedException();
-    }
-
-    /**
-     * TODO check if it is working
-     * @inheritDoc
-     */
-    public function createStatusXML()
-    {
-        return $this->requestDataMapper->createStatusRequestData($this->account, $this->order);
-    }
-
-    /**
-     * TODO check if it is working
-     * @inheritDoc
-     */
-    public function createHistoryXML($customQueryData)
-    {
-        return $this->requestDataMapper->createHistoryRequestData($this->account, $this->order, $customQueryData);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function createRefundXML()
-    {
-        $requestData = $this->requestDataMapper->createRefundRequestData($this->account, $this->order);
-
-        return $this->createXML($requestData);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function createCancelXML()
-    {
-        if (null === $this->order) {
-            $this->logger->log(LogLevel::ERROR, 'cancel data create without order data', [
-                'order' => $this->order,
-            ]);
-
-            throw new LogicException('Sipariş bilgileri eksik!');
-        }
-
-        $requestData = $this->requestDataMapper->createCancelRequestData($this->account, $this->order);
-
-        return $this->createXML($requestData);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    protected function preparePaymentOrder(array $order)
-    {
-        return (object) array_merge($order, [
-            'installment' => $order['installment'] ?? 0,
-            'currency'    => $order['currency'] ?? 'TRY',
-            'amount'      => $order['amount'],
-        ]);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    protected function preparePostPaymentOrder(array $order)
-    {
-        return (object) [
-            'id'       => $order['id'],
-            'amount'   => $order['amount'],
-            'currency' => $order['currency'] ?? 'TRY',
-            'ip'       => $order['ip'],
-        ];
-    }
-
-    /**
-     * @inheritDoc
-     */
-    protected function prepareStatusOrder(array $order)
-    {
-        return (object) $order;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    protected function prepareHistoryOrder(array $order)
-    {
-        return (object) [
-            'id' => $order['id'] ?? null,
-        ];
-    }
-
-    /**
-     * @inheritDoc
-     */
-    protected function prepareCancelOrder(array $order)
-    {
-        return (object) $order;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    protected function prepareRefundOrder(array $order)
-    {
-        return (object) $order;
-    }
-
-    /**
+     *
      * ORTAK ÖDEME SİSTEMİNE İŞLEM KAYDETME
-     * Basarili durumda donen cevap formati: array{CommonPaymentUrl: string, PaymentToken: string, ErrorCode: null, ResponseMessage: null}
-     * Basarisiz durumda donen cevap formati: array{CommonPaymentUrl: null, PaymentToken: null, ErrorCode: string, ResponseMessage: string}
+     *
+     * @phpstan-param PosInterface::TX_TYPE_PAY_AUTH|PosInterface::TX_TYPE_PAY_PRE_AUTH $txType
+     * @phpstan-param PosInterface::MODEL_3D_*                                          $paymentModel
+     *
+     * @param array<string, int|string|float|null> $order
+     * @param string                               $txType
+     * @param string                               $paymentModel
+     * @param CreditCardInterface|null             $creditCard
+     *
+     * Basarili durumda donen cevap formati: array{CommonPaymentUrl: string, PaymentToken: string, ErrorCode: null,
+     * ResponseMessage: null} Basarisiz durumda donen cevap formati: array{CommonPaymentUrl: null, PaymentToken: null,
+     * ErrorCode: string, ResponseMessage: string}
+     *
      * @return array{CommonPaymentUrl: string|null, PaymentToken: string|null, ErrorCode: string|null, ResponseMessage: string|null}
      *
-     * @throws Exception
+     * @throws UnsupportedTransactionTypeException
+     * @throws ClientExceptionInterface
      */
-    public function registerPayment(): array
+    private function registerPayment(array $order, string $txType, string $paymentModel, CreditCardInterface $creditCard = null): array
     {
-        if (null === $this->order) {
-            $this->logger->log(LogLevel::ERROR, 'register payment without setting order', [
-                'order' => $this->order,
-                'card_provided' => (bool) $this->card,
-            ]);
-
-            throw new LogicException('Sipariş bilgileri eksik!');
-        }
-
         $requestData = $this->requestDataMapper->create3DEnrollmentCheckRequestData(
             $this->account,
-            $this->order,
-            $this->type,
-            $this->card
+            $order,
+            $txType,
+            $paymentModel,
+            $creditCard
         );
 
-        return $this->send($requestData);
+        $event = new RequestDataPreparedEvent(
+            $requestData,
+            $this->account->getBank(),
+            $txType,
+            \get_class($this),
+            $order,
+            $paymentModel
+        );
+        $this->eventDispatcher->dispatch($event);
+        if ($requestData !== $event->getRequestData()) {
+            $this->logger->debug('Request data is changed via listeners', [
+                'txType'      => $event->getTxType(),
+                'bank'        => $event->getBank(),
+                'initialData' => $requestData,
+                'updatedData' => $event->getRequestData(),
+            ]);
+            $requestData = $event->getRequestData();
+        }
+
+        /** @var array{CommonPaymentUrl: string|null, PaymentToken: string|null, ErrorCode: string|null, ResponseMessage: string|null} $response */
+        $response = $this->send(
+            $requestData,
+            $txType,
+            $paymentModel,
+            $this->getApiURL()
+        );
+
+        return $response;
     }
 }
