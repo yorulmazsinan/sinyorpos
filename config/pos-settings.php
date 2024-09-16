@@ -149,14 +149,14 @@ return [
 			'name' => 'İşbank T.A.Ş.',
 			'class' => SinyorPos\Gateways\EstPos::class,
 			'urls' => [
-				'production' => 'https://spos.isbank.com.tr/fim/api',
+				'production' => 'https://sanalpos.isbank.com.tr/fim/api',
 				'test' => 'https://entegrasyon.asseco-see.com.tr/fim/api',
 				'gateway' => [
-					'production' => 'https://spos.isbank.com.tr/fim/est3Dgate',
+					'production' => 'https://sanalpos.isbank.com.tr/fim/est3Dgate',
 					'test' => 'https://entegrasyon.asseco-see.com.tr/fim/est3Dgate',
 				],
 				'gateway_3d_host' => [
-					'production' => 'https://spos.isbank.com.tr/fim/est3Dgate',
+					'production' => 'https://sanalpos.isbank.com.tr/fim/est3Dgate',
 					'test' => 'https://entegrasyon.asseco-see.com.tr/fim/est3Dgate',
 				],
 			],
@@ -330,8 +330,7 @@ return [
 					'test' => 'https://3dsecuretest.vakifbank.com.tr:4443/MPIAPI/MPI_Enrollment.aspx',
 				],
 				'query' => [
-					// todo update with the correct ones
-					'production' => 'https://sanalpos.vakifbank.com.tr/v4/UIWebService/Search.aspx',
+					'production' => 'https://onlineodeme.vakifbank.com.tr:4443/UIService/Search.aspx',
 					'test' => 'https://sanalpos.vakifbank.com.tr/v4/UIWebService/Search.aspx',
 				],
 			],
