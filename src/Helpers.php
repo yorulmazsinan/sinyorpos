@@ -43,7 +43,7 @@ if (!function_exists('getGateway')) {
 			$handler = new \Monolog\Handler\StreamHandler(__DIR__.'/../var/log/pos.log', \Psr\Log\LogLevel::DEBUG);
 			$logger = new \Monolog\Logger('pos', [$handler]);
 
-			$pos = PosFactory::createPosGateway($account, null, null, $logger);
+			$pos = PosFactory::createPosGateway($account, [], null, $logger);
 			$pos->setTestMode(false);
 
 			return $pos;
