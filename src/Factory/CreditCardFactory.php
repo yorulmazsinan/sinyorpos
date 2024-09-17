@@ -65,7 +65,6 @@ class CreditCardFactory
     /**
      * @phpstan-param CreditCardInterface::CARD_TYPE_* $cardType
      *
-     * @param PosInterface $pos
      * @param string      $number      credit card number with or without spaces
      * @param string      $expireYear  accepts year in 1, 2 and 4 digit format. accepted year formats '1' (2001), '02' (2002), '20' (2020), '2024' (2024)
      * @param string      $expireMonth single digit or double digit month values are accepted
@@ -80,7 +79,6 @@ class CreditCardFactory
      * @throws Exception
      */
     public static function create(
-		array $pos,
         string  $number,
         string  $expireYear,
         string  $expireMonth,
