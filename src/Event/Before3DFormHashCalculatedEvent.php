@@ -4,7 +4,7 @@
  * @license MIT
  */
 
-namespace Event;
+namespace SinyorPos\Event;
 
 use Pos\PosInterface;
 
