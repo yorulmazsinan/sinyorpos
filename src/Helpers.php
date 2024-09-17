@@ -88,7 +88,7 @@ if (!function_exists('createPosAccount')) {
 				$config['banks'][$bank]['accounts'][$status]['client_id'],
 				$config['banks'][$bank]['accounts'][$status]['username'],
 				$config['banks'][$bank]['accounts'][$status]['password'],
-				PosInterface::MODEL_3D_SECURE,
+				PosInterface::MODEL_NON_SECURE,
 				$config['banks'][$bank]['accounts'][$status]['store_key'],
 				PosInterface::LANG_TR
 			);
@@ -98,7 +98,7 @@ if (!function_exists('createPosAccount')) {
 				$config['banks'][$bank]['accounts'][$status]['client_id'],
 				$config['banks'][$bank]['accounts'][$status]['username'],
 				$config['banks'][$bank]['accounts'][$status]['password'],
-				PosInterface::MODEL_3D_SECURE,
+				PosInterface::MODEL_NON_SECURE,
 				$config['banks'][$bank]['accounts'][$status]['store_key'],
 				PosInterface::LANG_TR
 			);
@@ -108,7 +108,7 @@ if (!function_exists('createPosAccount')) {
 				$config['banks'][$bank]['accounts'][$status]['client_id'],
 				$config['banks'][$bank]['accounts'][$status]['username'],
 				$config['banks'][$bank]['accounts'][$status]['password'],
-				PosInterface::MODEL_3D_SECURE,
+				PosInterface::MODEL_NON_SECURE,
 				$config['banks'][$bank]['accounts'][$status]['store_key']
 			);
 		} elseif ($bank == 'garanti') {
@@ -118,7 +118,7 @@ if (!function_exists('createPosAccount')) {
 				$config['banks'][$bank]['accounts'][$status]['username'],
 				$config['banks'][$bank]['accounts'][$status]['password'],
 				$config['banks'][$bank]['accounts'][$status]['terminal_number'],
-				PosInterface::MODEL_3D_SECURE,
+				PosInterface::MODEL_NON_SECURE,
 				$config['banks'][$bank]['accounts'][$status]['store_key']
 			);
 		} elseif ($bank == 'yapikredi') {
@@ -129,7 +129,7 @@ if (!function_exists('createPosAccount')) {
 				$config['banks'][$bank]['accounts'][$status]['password'],
 				$config['banks'][$bank]['accounts'][$status]['terminal_number'],
 				$config['banks'][$bank]['accounts'][$status]['posnet_id'],
-				PosInterface::MODEL_3D_SECURE,
+				PosInterface::MODEL_NON_SECURE,
 				$config['banks'][$bank]['accounts'][$status]['enc_key']
 			);
 		}
