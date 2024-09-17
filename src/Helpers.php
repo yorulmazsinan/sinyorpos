@@ -87,9 +87,9 @@ if (!function_exists('createPosAccount')) {
 				$config['banks'][$bank]['accounts'][$status]['client_id'],
 				$config['banks'][$bank]['accounts'][$status]['username'],
 				$config['banks'][$bank]['accounts'][$status]['password'],
-				AbstractGateway::MODEL_3D_SECURE,
+				PosInterface::MODEL_3D_SECURE,
 				$config['banks'][$bank]['accounts'][$status]['store_key'],
-				AbstractGateway::LANG_TR
+				PosInterface::LANG_TR
 			);
 		} elseif ($bank == 'isbank') {
 			$account = AccountFactory::createEstPosAccount(
@@ -97,9 +97,9 @@ if (!function_exists('createPosAccount')) {
 				$config['banks'][$bank]['accounts'][$status]['client_id'],
 				$config['banks'][$bank]['accounts'][$status]['username'],
 				$config['banks'][$bank]['accounts'][$status]['password'],
-				AbstractGateway::MODEL_3D_SECURE,
+				PosInterface::MODEL_3D_SECURE,
 				$config['banks'][$bank]['accounts'][$status]['store_key'],
-				AbstractGateway::LANG_TR
+				PosInterface::LANG_TR
 			);
 		} elseif ($bank == 'qnbfinansbank-payfor') {
 			$account = AccountFactory::createPayForAccount(
@@ -107,7 +107,7 @@ if (!function_exists('createPosAccount')) {
 				$config['banks'][$bank]['accounts'][$status]['client_id'],
 				$config['banks'][$bank]['accounts'][$status]['username'],
 				$config['banks'][$bank]['accounts'][$status]['password'],
-				AbstractGateway::MODEL_3D_SECURE,
+				PosInterface::MODEL_3D_SECURE,
 				$config['banks'][$bank]['accounts'][$status]['store_key']
 			);
 		} elseif ($bank == 'garanti') {
@@ -117,7 +117,7 @@ if (!function_exists('createPosAccount')) {
 				$config['banks'][$bank]['accounts'][$status]['username'],
 				$config['banks'][$bank]['accounts'][$status]['password'],
 				$config['banks'][$bank]['accounts'][$status]['terminal_number'],
-				AbstractGateway::MODEL_3D_SECURE,
+				PosInterface::MODEL_3D_SECURE,
 				$config['banks'][$bank]['accounts'][$status]['store_key']
 			);
 		} elseif ($bank == 'yapikredi') {
@@ -128,7 +128,7 @@ if (!function_exists('createPosAccount')) {
 				$config['banks'][$bank]['accounts'][$status]['password'],
 				$config['banks'][$bank]['accounts'][$status]['terminal_number'],
 				$config['banks'][$bank]['accounts'][$status]['posnet_id'],
-				AbstractGateway::MODEL_3D_SECURE,
+				PosInterface::MODEL_3D_SECURE,
 				$config['banks'][$bank]['accounts'][$status]['enc_key']
 			);
 		}
@@ -202,7 +202,8 @@ if (!function_exists('receivePayment')) {
 			$user = null;
 		}
 
-		$pos = getGateway(createPosAccount($order->payment_bank, 'production')); // PosGateway nesnesini alıyoruz.
+		$eventDispatcher = new Symfony\Component\EventDispatcher\EventDispatcher();
+		$pos = getGateway(createPosAccount($order->payment_bank, 'production'), $eventDispatcher); // PosGateway nesnesini alıyoruz.
 
 		if ($userInformations == true) {
 			$userInformations = json_decode($order->buying_informations, true)['user']; // Kullanıcı bilgilerini alıyoruz.
@@ -214,9 +215,9 @@ if (!function_exists('receivePayment')) {
 
 		$card = createCard($pos, $cardInformations); // Kart bilgilerini oluşturuyoruz.
 
-		$pos->prepare($orderInformations, AbstractGateway::TX_TYPE_PAY_AUTH); // Ödeme için hazırlık yapıyoruz.
+		$pos->prepare($orderInformations, PosInterface::TX_TYPE_PAY_AUTH); // Ödeme için hazırlık yapıyoruz.
 
-		if ($pos->getAccount()->getModel() === AbstractGateway::MODEL_NON_SECURE && AbstractGateway::TX_TYPE_PAY_POST_AUTH !== AbstractGateway::TX_TYPE_PAY_AUTH) {
+		if ($pos->getAccount()->getModel() === PosInterface::MODEL_NON_SECURE && PosInterface::TX_TYPE_PAY_POST_AUTH !== PosInterface::TX_TYPE_PAY_AUTH) {
 			$pos->payment($card);
 		} else {
 			$pos->payment();
