@@ -49,6 +49,12 @@ class PosFactory
             $httpClient = HttpClientFactory::createDefaultHttpClient();
         }
 
+	    if (is_string($config)) {
+		    $config = require $config;
+	    } elseif (empty($config)) {
+		    $config = require __DIR__ . '/../../config/pos-settings.php';
+	    }
+
         // Bank API Exist
         if (!\array_key_exists($posAccount->getBank(), $config['banks'])) {
             throw new BankNotFoundException();
