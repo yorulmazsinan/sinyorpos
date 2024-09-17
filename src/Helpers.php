@@ -57,7 +57,7 @@ if (!function_exists('createCard')) {
 	function createCard(PosInterface $pos, array $card): \SinyorPos\Entity\Card\CreditCardInterface
 	{
 		try {
-			return CreditCardFactory::create(
+			return CreditCardFactory::createForGateway(
 				$pos,
 				$card['number'],
 				$card['year'],
