@@ -39,7 +39,7 @@ return [
          ],
 		'akbank' => [
              'name' => 'Akbank T.A.Ş.',
-             'class' => SinyorPos\Gateways\EstPos::class,
+             'class' => SinyorPos\Gateways\EstV3Pos::class,
              'urls' => [
                  'production' => 'https://www.sanalakpos.com/fim/api',
                  'test' => 'https://entegrasyon.asseco-see.com.tr/fim/api',
@@ -147,7 +147,7 @@ return [
 		],
 		'isbank' => [
 			'name' => 'İşbank T.A.Ş.',
-			'class' => SinyorPos\Gateways\EstPos::class,
+			'class' => SinyorPos\Gateways\EstV3Pos::class,
 			'urls' => [
 				'production' => 'https://sanalpos.isbank.com.tr/fim/api',
 				'test' => 'https://entegrasyon.asseco-see.com.tr/fim/api',
@@ -156,7 +156,7 @@ return [
 					'test' => 'https://entegrasyon.asseco-see.com.tr/fim/est3Dgate',
 				],
 				'gateway_3d_host' => [
-					'production' => 'https://sanalpos.isbank.com.tr/fim/est3Dgate',
+					'production' => 'sanalpos.isbank.com.tr/servlet/est3Dgate',
 					'test' => 'https://entegrasyon.asseco-see.com.tr/fim/est3Dgate',
 				],
 			],
