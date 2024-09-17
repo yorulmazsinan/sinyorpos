@@ -11,6 +11,7 @@ use SinyorPos\Entity\Account\AbstractPosAccount;
 use App\Models\Order;
 use App\Models\User;
 use App\Models\SiteSetting;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 
 if (!function_exists('checkCardType')) {
 	function checkCardType($number)
@@ -43,7 +44,7 @@ if (!function_exists('getGateway')) {
 			$handler = new \Monolog\Handler\StreamHandler(__DIR__.'/../var/log/pos.log', \Psr\Log\LogLevel::DEBUG);
 			$logger = new \Monolog\Logger('pos', [$handler]);
 
-			$pos = PosFactory::createPosGateway($account, [],  $eventDispatcher, $logger);
+			$pos = PosFactory::createPosGateway($account, [], $eventDispatcher, null, $logger);
 			$pos->setTestMode(false);
 
 			return $pos;
@@ -202,7 +203,7 @@ if (!function_exists('receivePayment')) {
 			$user = null;
 		}
 
-		$eventDispatcher = new Symfony\Component\EventDispatcher\EventDispatcher();
+		$eventDispatcher = new EventDispatcher(); // EventDispatcher nesnesini oluşturuyoruz.
 		$pos = getGateway(createPosAccount($order->payment_bank, 'production'), $eventDispatcher); // PosGateway nesnesini alıyoruz.
 
 		if ($userInformations == true) {
