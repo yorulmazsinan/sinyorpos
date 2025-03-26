@@ -9,6 +9,12 @@ use Psr\Log\LogLevel;
 
 class InterPosCrypt extends AbstractCrypt
 {
+    /** @var string */
+    protected const HASH_ALGORITHM = 'sha512';
+    
+    /** @var string */
+    protected const HASH_SEPARATOR = '|';
+    
     /**
      * {@inheritDoc}
      */
@@ -36,6 +42,14 @@ class InterPosCrypt extends AbstractCrypt
      */
     public function check3DHash(AbstractPosAccount $account, array $data): bool
     {
+        // HASHPARAMS veya HASH yoksa işlem başarısız
+        if (!isset($data['HASHPARAMS']) || !isset($data['HASH'])) {
+            $this->logger->log(LogLevel::ERROR, 'hash check failed, HASHPARAMS or HASH not found', [
+                'data' => $data
+            ]);
+            return false;
+        }
+        
         $actualHash = $this->hashFromParams($account->getStoreKey(), $data, 'HASHPARAMS', ':');
 
         if ($data['HASH'] === $actualHash) {
