@@ -53,7 +53,14 @@ class GarantiPos extends AbstractGateway
     {
         $request = $request->request;
         $bankResponse = null;
-        if (!$this->requestDataMapper->getCrypt()->check3DHash($this->account, $request->all())) {
+        
+        // mdstatus 7 olduğunda hash kontrolü yapma
+        if ($request->get('mdstatus') == 7) {
+            $this->logger->log(LogLevel::WARNING, '3d auth mdstatus is 7, skipping hash check', [
+                'request' => $request->all()
+            ]);
+        }
+        else if (!$this->requestDataMapper->getCrypt()->check3DHash($this->account, $request->all())) {
             // todo mdstatus 7 oldugunda hash, hashparam deger gelmiyor, check3dhash calismiyor
             throw new HashMismatchException();
         }
