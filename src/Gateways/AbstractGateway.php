@@ -1,589 +1,765 @@
 <?php
 
+/**
+ * @license MIT
+ */
+
 namespace SinyorPos\Gateways;
 
+use LogicException;
 use SinyorPos\Client\HttpClient;
-use SinyorPos\DataMapper\AbstractRequestDataMapper;
-use SinyorPos\DataMapper\ResponseDataMapper\NonPaymentResponseMapperInterface;
-use SinyorPos\DataMapper\ResponseDataMapper\PaymentResponseMapperInterface;
+use SinyorPos\DataMapper\RequestDataMapper\RequestDataMapperInterface;
+use SinyorPos\DataMapper\ResponseDataMapper\ResponseDataMapperInterface;
 use SinyorPos\Entity\Account\AbstractPosAccount;
-use SinyorPos\Entity\Card\AbstractCreditCard;
+use SinyorPos\Entity\Card\CreditCardInterface;
+use SinyorPos\Event\RequestDataPreparedEvent;
 use SinyorPos\Exceptions\UnsupportedPaymentModelException;
-use SinyorPos\Exceptions\UnsupportedTransactionTypeException;
 use SinyorPos\PosInterface;
+use SinyorPos\Serializer\SerializerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
+use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Log\LoggerInterface;
-use Psr\Log\LogLevel;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\Serializer\Encoder\XmlEncoder;
 
-/**
- * todo we need to update request data code base to return array instead of XML, because some providers does not use
- * XML. for example createRefundXML() this method will be createRefund() and return array. Then it will be converted to
- * XML in some other place if needed Class AbstractGateway
- */
 abstract class AbstractGateway implements PosInterface
 {
-	/** @var string */
-	public const LANG_TR = 'tr';
-
-	/** @var string */
-	public const LANG_EN = 'en';
-
-	/** @var string */
-	public const TX_PAY = 'pay';
-
-	/** @var string */
-	public const TX_PRE_PAY = 'pre';
-
-	/** @var string */
-	public const TX_POST_PAY = 'post';
-
-	/** @var string */
-	public const TX_CANCEL = 'cancel';
-
-	/** @var string */
-	public const TX_REFUND = 'refund';
-
-	/** @var string */
-	public const TX_STATUS = 'status';
-
-	/** @var string */
-	public const TX_HISTORY = 'history';
-
-	/** @var string */
-	public const MODEL_3D_SECURE = '3d';
-
-	/** @var string */
-	public const MODEL_3D_PAY = '3d_pay';
-
-	/** @var string */
-	public const MODEL_3D_PAY_HOSTING = '3d_pay_hosting';
-
-	/** @var string */
-	public const MODEL_3D_HOST = '3d_host';
-
-	/** @var string */
-	public const MODEL_NON_SECURE = 'regular';
-
-	/** @var array */
-	protected $config;
-
-	/** @var AbstractPosAccount */
-	protected $account;
-
-	/** @var AbstractCreditCard|null */
-	protected $card;
-
-	/**
-	 * Transaction Type
-	 *
-	 * @var self::TX_*
-	 */
-	protected $type;
-
-	/** @var object|null */
-	protected $order;
-
-	/**
-	 * Processed Response Data
-	 *
-	 * @var array|null
-	 */
-	protected $response;
-
-	/**
-	 * Raw Response Data From Bank
-	 *
-	 * @var mixed
-	 */
-	protected $data;
-
-	/** @var HttpClient */
-	protected $client;
-
-	/** @var AbstractRequestDataMapper */
-	protected $requestDataMapper;
-
-	/** @var PaymentResponseMapperInterface&NonPaymentResponseMapperInterface */
-	protected $responseDataMapper;
-
-	/** @var LoggerInterface */
-	protected $logger;
-
-	/** @var bool */
-	private $testMode = false;
-
-
-	public function __construct(
-		array                          $config,
-		AbstractPosAccount             $account,
-		AbstractRequestDataMapper      $requestDataMapper,
-		PaymentResponseMapperInterface $responseDataMapper,
-		HttpClient                     $client,
-		LoggerInterface                $logger
-	) {
-		$this->requestDataMapper  = $requestDataMapper;
-		$this->responseDataMapper = $responseDataMapper;
-
-		$this->config  = $config;
-		$this->account = $account;
-		$this->client  = $client;
-		$this->logger  = $logger;
-	}
-
-	/**
-	 * @inheritDoc
-	 */
-	public function prepare(array $order, string $txType, $card = null)
-	{
-		$this->setTxType($txType);
-
-		switch ($txType) {
-			case self::TX_PAY:
-			case self::TX_PRE_PAY:
-				$this->order = $this->preparePaymentOrder($order);
-				break;
-			case self::TX_POST_PAY:
-				$this->order = $this->preparePostPaymentOrder($order);
-				break;
-			case self::TX_CANCEL:
-				$this->order = $this->prepareCancelOrder($order);
-				break;
-			case self::TX_REFUND:
-				$this->order = $this->prepareRefundOrder($order);
-				break;
-			case self::TX_STATUS:
-				$this->order = $this->prepareStatusOrder($order);
-				break;
-			case self::TX_HISTORY:
-				$this->order = $this->prepareHistoryOrder($order);
-				break;
-		}
-
-		$this->logger->log(LogLevel::DEBUG, 'gateway prepare - order is prepared', [$this->order]);
-
-		$this->card = $card;
-	}
-
-	/**
-	 * @return array|null
-	 */
-	public function getResponse(): ?array
-	{
-		return $this->response;
-	}
-
-	/**
-	 * @return non-empty-array<string, string>
-	 */
-	public function getCurrencies(): array
-	{
-		return $this->requestDataMapper->getCurrencyMappings();
-	}
-
-	/**
-	 * @return array
-	 */
-	public function getConfig()
-	{
-		return $this->config;
-	}
-
-	/**
-	 * @return AbstractPosAccount
-	 */
-	abstract public function getAccount();
-
-	/**
-	 * @return AbstractCreditCard|null
-	 */
-	public function getCard(): ?AbstractCreditCard
-	{
-		return $this->card;
-	}
-
-	/**
-	 * @param AbstractCreditCard|null $card
-	 */
-	public function setCard(?AbstractCreditCard $card)
-	{
-		$this->card = $card;
-	}
-
-	/**
-	 * @return object
-	 */
-	public function getOrder()
-	{
-		return $this->order;
-	}
-
-	/**
-	 * @inheritDoc
-	 */
-	public function createXML(array $nodes, string $encoding = 'UTF-8', bool $ignorePiNode = false): string
-	{
-		$rootNodeName = array_keys($nodes)[0];
-		$encoder      = new XmlEncoder();
-		$context      = [
-			XmlEncoder::ROOT_NODE_NAME => $rootNodeName,
-			XmlEncoder::ENCODING       => $encoding,
-		];
-		if ($ignorePiNode) {
-			$context[XmlEncoder::ENCODER_IGNORED_NODE_TYPES] = [
-				XML_PI_NODE,
-			];
-		}
-
-		return $encoder->encode($nodes[$rootNodeName], 'xml', $context);
-	}
-
-	/**
-	 * Is success
-	 *
-	 * @return bool
-	 */
-	public function isSuccess(): bool
-	{
-		return isset($this->response['status']) && $this->responseDataMapper::TX_APPROVED === $this->response['status'];
-	}
-
-	/**
-	 * @return string
-	 */
-	public function getApiURL(): string
-	{
-		return $this->config['urls'][$this->getModeInWord()];
-	}
-
-	/**
-	 * @return string
-	 */
-	public function get3DGatewayURL(): string
-	{
-		return $this->config['urls']['gateway'][$this->getModeInWord()];
-	}
-
-	/**
-	 * @return string|null
-	 */
-	public function get3DHostGatewayURL(): ?string
-	{
-		return $this->config['urls']['gateway_3d_host'][$this->getModeInWord()] ?? null;
-	}
-
-	/**
-	 * @return string
-	 */
-	public function getQueryAPIUrl(): string
-	{
-		return $this->config['urls']['query'][$this->getModeInWord()] ?? $this->getApiURL();
-	}
-
-	/**
-	 * @return bool
-	 */
-	public function isTestMode(): bool
-	{
-		return $this->testMode;
-	}
-
-	/**
-	 * @param self::TX_* $txType
-	 *
-	 * @throws UnsupportedTransactionTypeException
-	 */
-	public function setTxType(string $txType)
-	{
-		$this->requestDataMapper->mapTxType($txType);
-
-		$this->type = $txType;
-
-		$this->logger->log(LogLevel::DEBUG, 'set transaction type', [$txType]);
-	}
-
-	/**
-	 * @inheritDoc
-	 */
-	public function payment($card = null)
-	{
-		$request    = Request::createFromGlobals();
-		$this->card = $card;
-
-		$model = $this->account->getModel();
-
-		$this->logger->log(LogLevel::DEBUG, 'payment called', [
-			'card_provided' => (bool) $this->card,
-			'model'         => $model,
-		]);
-		if (self::MODEL_NON_SECURE === $model) {
-			$this->makeRegularPayment();
-		} elseif (self::MODEL_3D_SECURE === $model) {
-			$this->make3DPayment($request);
-		} elseif (self::MODEL_3D_PAY === $model || self::MODEL_3D_PAY_HOSTING === $model) {
-			$this->make3DPayPayment($request);
-		} elseif (self::MODEL_3D_HOST === $model) {
-			$this->make3DHostPayment($request);
-		} else {
-			$this->logger->log(LogLevel::ERROR, 'unsupported payment model', ['model' => $model]);
-			throw new UnsupportedPaymentModelException();
-		}
-
-		return $this;
-	}
-
-	/**
-	 * @inheritDoc
-	 */
-	public function makeRegularPayment()
-	{
-		$this->logger->log(LogLevel::DEBUG, 'making payment', [
-			'model'   => $this->account->getModel(),
-			'tx_type' => $this->type,
-		]);
-		$contents = '';
-		if (in_array($this->type, [self::TX_PAY, self::TX_PRE_PAY])) {
-			$contents = $this->createRegularPaymentXML();
-		} elseif (self::TX_POST_PAY === $this->type) {
-			$contents = $this->createRegularPostXML();
-		}
-
-		$bankResponse = $this->send($contents);
-
-		$this->response = $this->responseDataMapper->mapPaymentResponse($bankResponse);
-
-		return $this;
-	}
-
-	/**
-	 * @inheritDoc
-	 */
-	public function refund()
-	{
-		$xml          = $this->createRefundXML();
-		$bankResponse = $this->send($xml);
-
-		$this->response = $this->responseDataMapper->mapRefundResponse($bankResponse);
-
-		return $this;
-	}
-
-	/**
-	 * @inheritDoc
-	 */
-	public function cancel()
-	{
-		$xml          = $this->createCancelXML();
-		$bankResponse = $this->send($xml);
-
-		$this->response = $this->responseDataMapper->mapCancelResponse($bankResponse);
-
-		return $this;
-	}
-
-	/**
-	 * @inheritDoc
-	 */
-	public function status()
-	{
-		$xml = $this->createStatusXML();
-
-		$bankResponse = $this->send($xml, $this->getQueryAPIUrl());
-		if (!is_array($bankResponse)) {
-			throw new \RuntimeException('Status isteği başarısız');
-		}
-
-		$this->response = $this->responseDataMapper->mapStatusResponse($bankResponse);
-
-		return $this;
-	}
-
-	/**
-	 * @inheritDoc
-	 */
-	public function history(array $meta)
-	{
-		$xml = $this->createHistoryXML($meta);
-
-		$bankResponse = $this->send($xml);
-
-		$this->response = $this->responseDataMapper->mapHistoryResponse($bankResponse);
-
-		return $this;
-	}
-
-	/**
-	 * @param bool $testMode
-	 *
-	 * @return $this
-	 */
-	public function setTestMode(bool $testMode): self
-	{
-		$this->testMode = $testMode;
-		$this->requestDataMapper->setTestMode($testMode);
-		$this->logger->log(LogLevel::DEBUG, 'switching mode', ['mode' => $this->getModeInWord()]);
-
-		return $this;
-	}
-
-	/**
-	 * {@inheritDoc}
-	 */
-	public function getCardTypeMapping(): array
-	{
-		return $this->requestDataMapper->getCardTypeMapping();
-	}
-
-	/**
-	 * @return string[]
-	 */
-	public function getLanguages(): array
-	{
-		return [self::LANG_TR, self::LANG_EN];
-	}
-
-	/**
-	 * Create Regular Payment XML
-	 *
-	 * @return string|array
-	 */
-	abstract public function createRegularPaymentXML();
-
-	/**
-	 * Create Regular Payment Post XML
-	 *
-	 * @return string|array
-	 */
-	abstract public function createRegularPostXML();
-
-	/**
-	 * Creates XML string for history inquiry
-	 *
-	 * @param array $customQueryData
-	 *
-	 * @return array|string
-	 */
-	abstract public function createHistoryXML($customQueryData);
-
-	/**
-	 * Creates XML string for order status inquiry
-	 * @return array|string
-	 */
-	abstract public function createStatusXML();
-
-	/**
-	 * Creates XML string for order cancel operation
-	 * @return array|string
-	 */
-	abstract public function createCancelXML();
-
-	/**
-	 * Creates XML string for order refund operation
-	 * @return array|string
-	 */
-	abstract public function createRefundXML();
-
-	/**
-	 * Creates 3D Payment XML
-	 *
-	 * @param array<string, string> $responseData
-	 *
-	 * @return string|array
-	 */
-	abstract public function create3DPaymentXML($responseData);
-
-	/**
-	 * returns form data, key values, necessary for 3D payment
-	 *
-	 * @return array{gateway: string, method: 'POST'|'GET', inputs: array<string, string>}
-	 */
-	abstract public function get3DFormData(): array;
-
-	/**
-	 * prepares order for payment request
-	 *
-	 * @param array $order
-	 *
-	 * @return object
-	 */
-	abstract protected function preparePaymentOrder(array $order);
-
-	/**
-	 * prepares order for TX_POST_PAY type request
-	 *
-	 * @param array $order
-	 *
-	 * @return object
-	 */
-	abstract protected function preparePostPaymentOrder(array $order);
-
-	/**
-	 * prepares order for order status request
-	 *
-	 * @param array $order
-	 *
-	 * @return object
-	 */
-	abstract protected function prepareStatusOrder(array $order);
-
-	/**
-	 * prepares order for history request
-	 *
-	 * @param array $order
-	 *
-	 * @return object
-	 */
-	abstract protected function prepareHistoryOrder(array $order);
-
-	/**
-	 * prepares order for cancel request
-	 *
-	 * @param array $order
-	 *
-	 * @return object
-	 */
-	abstract protected function prepareCancelOrder(array $order);
-
-	/**
-	 * prepares order for refund request
-	 *
-	 * @param array $order
-	 *
-	 * @return object
-	 */
-	abstract protected function prepareRefundOrder(array $order);
-
-	/**
-	 * @param string $str
-	 *
-	 * @return bool
-	 */
-	protected function isHTML($str): bool
-	{
-		return $str !== strip_tags($str);
-	}
-
-	/**
-	 * Converts XML string to array
-	 *
-	 * @param string $data
-	 * @param array  $context
-	 *
-	 * @return array
-	 */
-	protected function XMLStringToArray(string $data, array $context = []): array
-	{
-		$encoder = new XmlEncoder();
-
-		return $encoder->decode($data, 'xml', $context);
-	}
-
-	/**
-	 * return values are used as a key in config file
-	 * @return string
-	 */
-	protected function getModeInWord(): string
-	{
-		return $this->isTestMode() ? 'test' : 'production';
-	}
+    /** @var array{gateway_endpoints: array{payment_api: non-empty-string, payment_api_2?: non-empty-string, gateway_3d: non-empty-string, gateway_3d_host?: non-empty-string, query_api?: non-empty-string}} */
+    protected array $config;
+
+    protected AbstractPosAccount $account;
+
+    /**
+     * Processed Response Data
+     *
+     * @var array<string, mixed>|null
+     */
+    protected ?array $response;
+
+    /**
+     * Raw Response Data From Bank
+     *
+     * @var array<string, mixed>|null
+     */
+    protected ?array $data;
+
+    protected HttpClient $client;
+
+    protected RequestDataMapperInterface $requestDataMapper;
+
+    protected ResponseDataMapperInterface $responseDataMapper;
+
+    protected SerializerInterface $serializer;
+
+    protected EventDispatcherInterface $eventDispatcher;
+
+    protected LoggerInterface $logger;
+
+    /**
+     * @var array<PosInterface::TX_TYPE_*, array<int, PosInterface::MODEL_*>|bool>
+     */
+    protected static array $supportedTransactions = [];
+
+    /**
+     * @var array<int, PosInterface::MODEL_3D_*>
+     */
+    protected static array $threeDPaymentModels = [
+        PosInterface::MODEL_3D_SECURE,
+        PosInterface::MODEL_3D_PAY,
+        PosInterface::MODEL_3D_HOST,
+        PosInterface::MODEL_3D_PAY_HOSTING,
+    ];
+
+    /**
+     * @var array<int, PosInterface::MODEL_*>
+     */
+    protected static array $paymentModelsWithCard = [
+        PosInterface::MODEL_NON_SECURE,
+        PosInterface::MODEL_3D_SECURE,
+        PosInterface::MODEL_3D_PAY,
+    ];
+
+    private bool $testMode = false;
+
+    /**
+     * @param array{gateway_endpoints: array{payment_api: non-empty-string, gateway_3d: non-empty-string, gateway_3d_host?: non-empty-string, query_api?: non-empty-string}} $config
+     */
+    public function __construct(
+        array                          $config,
+        AbstractPosAccount             $posAccount,
+        RequestDataMapperInterface     $requestDataMapper,
+        ResponseDataMapperInterface    $responseDataMapper,
+        SerializerInterface            $serializer,
+        EventDispatcherInterface       $eventDispatcher,
+        HttpClient                     $httpClient,
+        LoggerInterface                $logger
+    ) {
+        $this->requestDataMapper  = $requestDataMapper;
+        $this->responseDataMapper = $responseDataMapper;
+        $this->serializer         = $serializer;
+        $this->eventDispatcher    = $eventDispatcher;
+
+        $this->config  = $config;
+        $this->account = $posAccount;
+        $this->client  = $httpClient;
+        $this->logger  = $logger;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getResponse(): ?array
+    {
+        return $this->response;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getCurrencies(): array
+    {
+        return \array_keys($this->requestDataMapper->getCurrencyMappings());
+    }
+
+    /**
+     * @return array{gateway_endpoints: array{payment_api: string, gateway_3d: string, gateway_3d_host?: string, query_api?: string}}
+     */
+    public function getConfig(): array
+    {
+        return $this->config;
+    }
+
+    /**
+     * Is success
+     *
+     * @return bool
+     */
+    public function isSuccess(): bool
+    {
+        return isset($this->response['status']) && $this->responseDataMapper::TX_APPROVED === $this->response['status'];
+    }
+
+    /**
+     * @phpstan-param self::TX_TYPE_*     $txType
+     * @phpstan-param self::MODEL_*       $paymentModel
+     * @phpstan-param self::TX_TYPE_PAY_* $orderTxType
+     *
+     * @param string|null $txType
+     * @param string|null $paymentModel
+     * @param string|null $orderTxType
+     *
+     * @return non-empty-string
+     */
+    public function getApiURL(string $txType = null, string $paymentModel = null, ?string $orderTxType = null): string
+    {
+        return $this->config['gateway_endpoints']['payment_api'];
+    }
+
+    /**
+     * @param PosInterface::MODEL_3D_* $paymentModel
+     *
+     * @return non-empty-string
+     */
+    public function get3DGatewayURL(string $paymentModel = PosInterface::MODEL_3D_SECURE): string
+    {
+        if (PosInterface::MODEL_3D_HOST === $paymentModel && isset($this->config['gateway_endpoints']['gateway_3d_host'])) {
+            return $this->config['gateway_endpoints']['gateway_3d_host'];
+        }
+
+        return $this->config['gateway_endpoints']['gateway_3d'];
+    }
+
+    /**
+     * @return non-empty-string
+     *
+     * @deprecated use get3DGatewayURL() instead
+     */
+    public function get3DHostGatewayURL(): string
+    {
+        return $this->get3DGatewayURL(PosInterface::MODEL_3D_HOST);
+    }
+
+    /**
+     * @phpstan-param self::TX_TYPE_*     $txType
+     * @phpstan-param self::TX_TYPE_PAY_* $orderTxType
+     *
+     * @param string|null $txType
+     * @param string|null $orderTxType transaction type of order when it was made
+     *
+     * @return non-empty-string
+     */
+    public function getQueryAPIUrl(string $txType = null, ?string $orderTxType = null): string
+    {
+        return $this->config['gateway_endpoints']['query_api'] ?? $this->getApiURL(
+            $txType,
+            PosInterface::MODEL_NON_SECURE,
+            $orderTxType
+        );
+    }
+
+    /**
+     * @return bool
+     */
+    public function isTestMode(): bool
+    {
+        return $this->testMode;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function payment(string $paymentModel, array $order, string $txType, ?CreditCardInterface $creditCard = null): PosInterface
+    {
+        $request = Request::createFromGlobals();
+
+        $this->logger->debug('payment called', [
+            'card_provided' => (bool) $creditCard,
+            'tx_type'       => $txType,
+            'model'         => $paymentModel,
+        ]);
+        if (PosInterface::TX_TYPE_PAY_POST_AUTH === $txType) {
+            $this->makeRegularPostPayment($order);
+
+            return $this;
+        }
+
+        if (PosInterface::MODEL_NON_SECURE === $paymentModel) {
+            if (!$creditCard instanceof CreditCardInterface) {
+                throw new LogicException('Bu işlem için kredi kartı bilgileri zorunlu!');
+            }
+
+            $this->makeRegularPayment($order, $creditCard, $txType);
+        } elseif (PosInterface::MODEL_3D_SECURE === $paymentModel) {
+            $this->make3DPayment($request, $order, $txType, $creditCard);
+        } elseif (PosInterface::MODEL_3D_PAY === $paymentModel || PosInterface::MODEL_3D_PAY_HOSTING === $paymentModel) {
+            $this->make3DPayPayment($request, $order, $txType);
+        } elseif (PosInterface::MODEL_3D_HOST === $paymentModel) {
+            $this->make3DHostPayment($request, $order, $txType);
+        } else {
+            $this->logger->error('unsupported payment model', ['model' => $paymentModel]);
+            throw new UnsupportedPaymentModelException();
+        }
+
+        return $this;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function makeRegularPayment(array $order, CreditCardInterface $creditCard, string $txType): PosInterface
+    {
+        $this->logger->debug('making payment', [
+            'model'   => PosInterface::MODEL_NON_SECURE,
+            'tx_type' => $txType,
+        ]);
+        if (!\in_array($txType, [PosInterface::TX_TYPE_PAY_AUTH, PosInterface::TX_TYPE_PAY_PRE_AUTH], true)) {
+            throw new LogicException(\sprintf('Invalid transaction type "%s" provided', $txType));
+        }
+        $requestData = $this->requestDataMapper->createNonSecurePaymentRequestData($this->account, $order, $txType, $creditCard);
+
+        $event = new RequestDataPreparedEvent(
+            $requestData,
+            $this->account->getBank(),
+            $txType,
+            \get_class($this),
+            $order,
+            PosInterface::MODEL_NON_SECURE
+        );
+        /** @var RequestDataPreparedEvent $event */
+        $event = $this->eventDispatcher->dispatch($event);
+        if ($requestData !== $event->getRequestData()) {
+            $this->logger->debug('Request data is changed via listeners', [
+                'txType'      => $event->getTxType(),
+                'bank'        => $event->getBank(),
+                'initialData' => $requestData,
+                'updatedData' => $event->getRequestData(),
+            ]);
+            $requestData = $event->getRequestData();
+        }
+
+        $contents       = $this->serializer->encode($requestData, $txType);
+        $bankResponse   = $this->send(
+            $contents,
+            $txType,
+            PosInterface::MODEL_NON_SECURE,
+            $this->getApiURL($txType, PosInterface::MODEL_NON_SECURE)
+        );
+        $this->response = $this->responseDataMapper->mapPaymentResponse($bankResponse, $txType, $order);
+
+        return $this;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function makeRegularPostPayment(array $order): PosInterface
+    {
+        $txType = PosInterface::TX_TYPE_PAY_POST_AUTH;
+        $this->logger->debug('making payment', [
+            'model'   => PosInterface::MODEL_NON_SECURE,
+            'tx_type' => $txType,
+        ]);
+
+        $requestData = $this->requestDataMapper->createNonSecurePostAuthPaymentRequestData($this->account, $order);
+
+        $event = new RequestDataPreparedEvent(
+            $requestData,
+            $this->account->getBank(),
+            $txType,
+            \get_class($this),
+            $order,
+            PosInterface::MODEL_NON_SECURE
+        );
+        /** @var RequestDataPreparedEvent $event */
+        $event = $this->eventDispatcher->dispatch($event);
+        if ($requestData !== $event->getRequestData()) {
+            $this->logger->debug('Request data is changed via listeners', [
+                'txType'      => $event->getTxType(),
+                'bank'        => $event->getBank(),
+                'initialData' => $requestData,
+                'updatedData' => $event->getRequestData(),
+            ]);
+            $requestData = $event->getRequestData();
+        }
+
+        $contents       = $this->serializer->encode($requestData, $txType);
+        $bankResponse   = $this->send(
+            $contents,
+            $txType,
+            PosInterface::MODEL_NON_SECURE,
+            $this->getApiURL($txType, PosInterface::MODEL_NON_SECURE)
+        );
+        $this->response = $this->responseDataMapper->mapPaymentResponse($bankResponse, $txType, $order);
+
+        return $this;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function refund(array $order): PosInterface
+    {
+        $txType = PosInterface::TX_TYPE_REFUND;
+        if (isset($order['order_amount']) && $order['amount'] < $order['order_amount']) {
+            $txType = PosInterface::TX_TYPE_REFUND_PARTIAL;
+        }
+
+        $requestData = $this->requestDataMapper->createRefundRequestData($this->account, $order, $txType);
+
+        $event = new RequestDataPreparedEvent(
+            $requestData,
+            $this->account->getBank(),
+            $txType,
+            \get_class($this),
+            $order,
+            PosInterface::MODEL_NON_SECURE
+        );
+        /** @var RequestDataPreparedEvent $event */
+        $event = $this->eventDispatcher->dispatch($event);
+        if ($requestData !== $event->getRequestData()) {
+            $this->logger->debug('Request data is changed via listeners', [
+                'txType'      => $event->getTxType(),
+                'bank'        => $event->getBank(),
+                'initialData' => $requestData,
+                'updatedData' => $event->getRequestData(),
+            ]);
+            $requestData = $event->getRequestData();
+        }
+
+        $data           = $this->serializer->encode($requestData, $txType);
+        $bankResponse   = $this->send(
+            $data,
+            $txType,
+            PosInterface::MODEL_NON_SECURE,
+            $this->getApiURL(
+                $txType,
+                PosInterface::MODEL_NON_SECURE,
+                $order['transaction_type'] ?? null
+            )
+        );
+        $this->response = $this->responseDataMapper->mapRefundResponse($bankResponse);
+
+        return $this;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function cancel(array $order): PosInterface
+    {
+        $txType      = PosInterface::TX_TYPE_CANCEL;
+        $requestData = $this->requestDataMapper->createCancelRequestData($this->account, $order);
+
+        $event = new RequestDataPreparedEvent(
+            $requestData,
+            $this->account->getBank(),
+            $txType,
+            \get_class($this),
+            $order,
+            PosInterface::MODEL_NON_SECURE
+        );
+        /** @var RequestDataPreparedEvent $event */
+        $event = $this->eventDispatcher->dispatch($event);
+        if ($requestData !== $event->getRequestData()) {
+            $this->logger->debug('Request data is changed via listeners', [
+                'txType'      => $event->getTxType(),
+                'bank'        => $event->getBank(),
+                'initialData' => $requestData,
+                'updatedData' => $event->getRequestData(),
+            ]);
+            $requestData = $event->getRequestData();
+        }
+
+        $data           = $this->serializer->encode($requestData, $txType);
+        $bankResponse   = $this->send(
+            $data,
+            $txType,
+            PosInterface::MODEL_NON_SECURE,
+            $this->getApiURL(
+                $txType,
+                PosInterface::MODEL_NON_SECURE,
+                $order['transaction_type'] ?? null
+            )
+        );
+        $this->response = $this->responseDataMapper->mapCancelResponse($bankResponse);
+
+        return $this;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function status(array $order): PosInterface
+    {
+        $txType      = PosInterface::TX_TYPE_STATUS;
+        $requestData = $this->requestDataMapper->createStatusRequestData($this->account, $order);
+
+        $event = new RequestDataPreparedEvent(
+            $requestData,
+            $this->account->getBank(),
+            $txType,
+            \get_class($this),
+            $order,
+            PosInterface::MODEL_NON_SECURE
+        );
+        /** @var RequestDataPreparedEvent $event */
+        $event = $this->eventDispatcher->dispatch($event);
+        if ($requestData !== $event->getRequestData()) {
+            $this->logger->debug('Request data is changed via listeners', [
+                'txType'      => $event->getTxType(),
+                'bank'        => $event->getBank(),
+                'initialData' => $requestData,
+                'updatedData' => $event->getRequestData(),
+            ]);
+            $requestData = $event->getRequestData();
+        }
+
+        $data           = $this->serializer->encode($requestData, $txType);
+        $bankResponse   = $this->send(
+            $data,
+            $txType,
+            PosInterface::MODEL_NON_SECURE,
+            $this->getQueryAPIUrl($txType)
+        );
+        $this->response = $this->responseDataMapper->mapStatusResponse($bankResponse);
+
+        return $this;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function history(array $data): PosInterface
+    {
+        $txType      = PosInterface::TX_TYPE_HISTORY;
+        $requestData = $this->requestDataMapper->createHistoryRequestData($this->account, $data);
+
+        $event = new RequestDataPreparedEvent(
+            $requestData,
+            $this->account->getBank(),
+            $txType,
+            \get_class($this),
+            $data,
+            PosInterface::MODEL_NON_SECURE
+        );
+        /** @var RequestDataPreparedEvent $event */
+        $event = $this->eventDispatcher->dispatch($event);
+        if ($requestData !== $event->getRequestData()) {
+            $this->logger->debug('Request data is changed via listeners', [
+                'txType'      => $event->getTxType(),
+                'bank'        => $event->getBank(),
+                'initialData' => $requestData,
+                'updatedData' => $event->getRequestData(),
+            ]);
+            $requestData = $event->getRequestData();
+        }
+
+        $encodedRequestData = $this->serializer->encode($requestData, $txType);
+        $bankResponse       = $this->send(
+            $encodedRequestData,
+            $txType,
+            PosInterface::MODEL_NON_SECURE,
+            $this->getApiURL($txType, PosInterface::MODEL_NON_SECURE)
+        );
+        $this->response     = $this->responseDataMapper->mapHistoryResponse($bankResponse);
+
+        return $this;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function orderHistory(array $order): PosInterface
+    {
+        $txType      = PosInterface::TX_TYPE_ORDER_HISTORY;
+        $requestData = $this->requestDataMapper->createOrderHistoryRequestData($this->account, $order);
+
+        $event = new RequestDataPreparedEvent(
+            $requestData,
+            $this->account->getBank(),
+            $txType,
+            \get_class($this),
+            $order,
+            PosInterface::MODEL_NON_SECURE
+        );
+        /** @var RequestDataPreparedEvent $event */
+        $event = $this->eventDispatcher->dispatch($event);
+        if ($requestData !== $event->getRequestData()) {
+            $this->logger->debug('Request data is changed via listeners', [
+                'txType'      => $event->getTxType(),
+                'bank'        => $event->getBank(),
+                'initialData' => $requestData,
+                'updatedData' => $event->getRequestData(),
+            ]);
+            $requestData = $event->getRequestData();
+        }
+
+        $data           = $this->serializer->encode($requestData, $txType);
+        $bankResponse   = $this->send(
+            $data,
+            $txType,
+            PosInterface::MODEL_NON_SECURE,
+            $this->getApiURL($txType, PosInterface::MODEL_NON_SECURE)
+        );
+        $this->response = $this->responseDataMapper->mapOrderHistoryResponse($bankResponse);
+
+        return $this;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function customQuery(array $requestData, string $apiUrl = null): PosInterface
+    {
+        $txType             = PosInterface::TX_TYPE_CUSTOM_QUERY;
+        $updatedRequestData = $this->requestDataMapper->createCustomQueryRequestData($this->account, $requestData);
+
+        $event = new RequestDataPreparedEvent(
+            $updatedRequestData,
+            $this->account->getBank(),
+            $txType,
+            \get_class($this),
+            $requestData,
+            PosInterface::MODEL_NON_SECURE
+        );
+
+        /** @var RequestDataPreparedEvent $event */
+        $event = $this->eventDispatcher->dispatch($event);
+        if ($updatedRequestData !== $event->getRequestData()) {
+            $this->logger->debug('Request data is changed via listeners', [
+                'txType'      => $event->getTxType(),
+                'bank'        => $event->getBank(),
+                'initialData' => $requestData,
+                'updatedData' => $event->getRequestData(),
+            ]);
+            $updatedRequestData = $event->getRequestData();
+        }
+
+        $data           = $this->serializer->encode($updatedRequestData, $txType);
+        $apiUrl         ??= $this->getQueryAPIUrl($txType);
+        $this->response = $this->send(
+            $data,
+            $txType,
+            PosInterface::MODEL_NON_SECURE,
+            $apiUrl
+        );
+
+        return $this;
+    }
+
+    /**
+     * @param bool $testMode
+     *
+     * @return $this
+     */
+    public function setTestMode(bool $testMode): PosInterface
+    {
+        $this->testMode = $testMode;
+        $this->requestDataMapper->setTestMode($testMode);
+        $this->logger->debug('switching mode', ['is_test_mode' => $this->isTestMode()]);
+
+        return $this;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getCardTypeMapping(): array
+    {
+        return $this->requestDataMapper->getCardTypeMapping();
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getLanguages(): array
+    {
+        return [PosInterface::LANG_TR, PosInterface::LANG_EN];
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public static function isSupportedTransaction(string $txType, string $paymentModel): bool
+    {
+        if (!isset(static::$supportedTransactions[$txType])) {
+            return false;
+        }
+
+        if (\is_bool(static::$supportedTransactions[$txType])) {
+            return static::$supportedTransactions[$txType];
+        }
+
+        return \in_array($paymentModel, static::$supportedTransactions[$txType], true);
+    }
+
+    /**
+     * Send requests to bank APIs
+     *
+     * @phpstan-param PosInterface::TX_TYPE_* $txType
+     * @phpstan-param PosInterface::MODEL_*   $paymentModel
+     *
+     * @param array<string, mixed>|string $contents data to send
+     * @param string                      $txType
+     * @param string                      $paymentModel
+     * @param non-empty-string            $url      URL address of the API
+     *
+     * @return array<string, mixed>
+     *
+     * @throws ClientExceptionInterface
+     */
+    abstract protected function send($contents, string $txType, string $paymentModel, string $url): array;
+
+    /**
+     * @param array<string, mixed> $responseData
+     *
+     * @return bool
+     */
+    protected function is3DAuthSuccess(array $responseData): bool
+    {
+        $mdStatus = $this->responseDataMapper->extractMdStatus($responseData);
+
+        if ($this->responseDataMapper->is3dAuthSuccess($mdStatus)) {
+            $this->logger->info('3d auth success', ['md_status' => $mdStatus]);
+
+            return true;
+        }
+
+        $this->logger->error('3d auth fail', ['md_status' => $mdStatus]);
+
+        return false;
+    }
+
+    /**
+     * @param PosInterface::MODEL_3D_* $paymentModel
+     * @param PosInterface::TX_TYPE_*  $txType
+     * @param CreditCardInterface|null $card
+     * @param bool                     $createWithoutCard
+     *
+     * @throws \LogicException when inputs are not valid
+     */
+    protected function check3DFormInputs(string $paymentModel, string $txType, CreditCardInterface $card = null, bool $createWithoutCard = false): void
+    {
+        $paymentModels = self::getSupported3DPaymentModelsForPaymentTransaction($txType);
+        if (!self::isSupportedTransaction($txType, $paymentModel)) {
+            throw new \LogicException(\sprintf(
+                '%s ödeme altyapıda [%s] işlem tipi [%s] ödeme model(ler) desteklemektedir. Sağlanan ödeme model: [%s].',
+                static::class,
+                $txType,
+                \implode(', ', $paymentModels),
+                $paymentModel
+            ));
+        }
+
+        if (PosInterface::MODEL_3D_HOST === $paymentModel && $card instanceof CreditCardInterface) {
+            throw new \LogicException(\sprintf(
+                'Kart bilgileri ile form verisi oluşturmak icin [%s] ödeme modeli kullanmayınız! Yerine [%s] ödeme model(ler)ini kullanınız.',
+                $paymentModel,
+                \implode(', ', self::getSupported3DPaymentModelsForPaymentTransaction($txType, true))
+            ));
+        }
+
+        if ($createWithoutCard) {
+            return;
+        }
+
+        if ((PosInterface::MODEL_3D_SECURE === $paymentModel || PosInterface::MODEL_3D_PAY === $paymentModel)
+            && null === $card
+        ) {
+            throw new \LogicException('Bu ödeme modeli için kart bilgileri zorunlu!');
+        }
+    }
+
+    /**
+     * @return array<int, PosInterface::TX_TYPE_*>
+     */
+    private static function getSupport3DTxTypes(): array
+    {
+        $threeDSupportedTxTypes = [];
+        $txTypes                = [
+            PosInterface::TX_TYPE_PAY_AUTH,
+            PosInterface::TX_TYPE_PAY_PRE_AUTH,
+        ];
+        foreach ($txTypes as $txType) {
+            foreach (self::$threeDPaymentModels as $paymentModel) {
+                if (self::isSupportedTransaction($txType, $paymentModel)) {
+                    $threeDSupportedTxTypes[] = $txType;
+                }
+            }
+        }
+
+        return \array_values(\array_unique($threeDSupportedTxTypes));
+    }
+
+    /**
+     * @param PosInterface::TX_TYPE_* $txType
+     *
+     * @return array<int, PosInterface::MODEL_*>
+     */
+    private static function getSupported3DPaymentModelsForPaymentTransaction(string $txType, ?bool $withCard = null): array
+    {
+        $supported3DPaymentTxs = self::getSupport3DTxTypes();
+        if (!\in_array($txType, $supported3DPaymentTxs, true)) {
+            throw new \LogicException(\sprintf(
+                'Hatalı işlem tipi! Desteklenen işlem tipleri: [%s].',
+                \implode(', ', $supported3DPaymentTxs)
+            ));
+        }
+
+        $supportedPaymentModels = [];
+        if (\is_bool(static::$supportedTransactions[$txType]) && static::$supportedTransactions[$txType]) {
+            $supportedPaymentModels = self::$threeDPaymentModels;
+        }
+
+        /** @var array<int, PosInterface::MODEL_3D_*> $supportedPaymentModels */
+        $supportedPaymentModels = [] === $supportedPaymentModels ? static::$supportedTransactions[$txType] : $supportedPaymentModels;
+
+        if (null === $withCard) {
+            return $supportedPaymentModels;
+        }
+        if ($withCard) {
+            return \array_intersect($supportedPaymentModels, self::$paymentModelsWithCard);
+        }
+
+        return \array_diff($supportedPaymentModels, self::$paymentModelsWithCard);
+    }
 }
