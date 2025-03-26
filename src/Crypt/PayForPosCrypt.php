@@ -10,6 +10,12 @@ use Psr\Log\LogLevel;
 
 class PayForPosCrypt extends AbstractCrypt
 {
+    /** @var string */
+    protected const HASH_ALGORITHM = 'sha512';
+    
+    /** @var string */
+    protected const HASH_SEPARATOR = '|';
+    
     /**
      * {@inheritDoc}
      */
@@ -36,6 +42,14 @@ class PayForPosCrypt extends AbstractCrypt
      */
     public function check3DHash(AbstractPosAccount $account, array $data): bool
     {
+        // ResponseHash yoksa işlem başarısız
+        if (!isset($data['ResponseHash'])) {
+            $this->logger->log(LogLevel::ERROR, 'hash check failed, ResponseHash not found', [
+                'data' => $data
+            ]);
+            return false;
+        }
+        
         $hashData = [
             $account->getClientId(),
             $account->getStoreKey(),

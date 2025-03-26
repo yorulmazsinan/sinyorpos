@@ -331,7 +331,7 @@ return [
 				],
 				'query' => [
 					'production' => 'https://onlineodeme.vakifbank.com.tr:4443/UIService/Search.aspx',
-					'test' => 'https://sanalpos.vakifbank.com.tr/v4/UIWebService/Search.aspx',
+					'test' => 'https://onlineodeme.vakifbank.com.tr:4443/UIService/Search.aspx',
 				],
 			],
 			'accounts' => [

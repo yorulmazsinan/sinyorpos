@@ -9,6 +9,12 @@ use Psr\Log\LogLevel;
 
 class GarantiPosCrypt extends AbstractCrypt
 {
+    /** @var string */
+    protected const HASH_ALGORITHM = 'sha512';
+    
+    /** @var string */
+    protected const HASH_SEPARATOR = '|';
+
     /**
      * @param GarantiPosAccount $account
      * {@inheritDoc}
@@ -35,6 +41,14 @@ class GarantiPosCrypt extends AbstractCrypt
      */
     public function check3DHash(AbstractPosAccount $account, array $data): bool
     {
+        // hash veya hashparams yoksa işlem başarısız
+        if (!isset($data['hash']) || !isset($data['hashparams'])) {
+            $this->logger->log(LogLevel::ERROR, 'hash check failed, hash or hashparams not found', [
+                'data' => $data
+            ]);
+            return false;
+        }
+        
         $actualHash = $this->hashFromParams($account->getStoreKey(), $data, 'hashparams', ':');
 
         if ($data['hash'] === $actualHash) {

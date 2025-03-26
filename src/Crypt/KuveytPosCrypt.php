@@ -7,6 +7,12 @@ use SinyorPos\Entity\Card\AbstractCreditCard;
 
 class KuveytPosCrypt extends AbstractCrypt
 {
+    /** @var string */
+    protected const HASH_ALGORITHM = 'sha512';
+    
+    /** @var string */
+    protected const HASH_SEPARATOR = '|';
+    
     /**
      * {@inheritDoc}
      */

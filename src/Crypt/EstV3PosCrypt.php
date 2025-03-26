@@ -20,21 +20,30 @@ class EstV3PosCrypt extends AbstractCrypt
      */
     public function create3DHash(AbstractPosAccount $account, array $requestData, ?string $txType = null): string
     {
-        ksort($requestData, SORT_NATURAL | SORT_FLAG_CASE);
-        foreach (array_keys($requestData) as $key) {
-            // this part is needed only to create hash from the bank response
-            if (in_array(strtolower($key), ['hash', 'encoding']))  {
-                unset($requestData[$key]);
-            }
+        // Nestpay Hash Versiyon 3 için hashAlgorithm parametresini ekle
+        $requestData['hashAlgorithm'] = 'ver3';
+        
+        // Hash hesaplaması için Encoding ve Hash parametrelerini çıkar
+        $hashData = $requestData;
+        unset($hashData['hash']);
+        unset($hashData['encoding']);
+        
+        // Parametreleri alfabetik olarak sırala
+        ksort($hashData, SORT_NATURAL | SORT_FLAG_CASE);
+        
+        // Parametreleri StoreKey ile birleştir
+        $hashData[] = $account->getStoreKey();
+        
+        // Escape | ve \ karakterleri
+        $data = [];
+        foreach ($hashData as $value) {
+            $value = str_replace("\\", "\\\\", (string)$value);
+            $value = str_replace(self::HASH_SEPARATOR, "\\".self::HASH_SEPARATOR, $value);
+            $data[] = $value;
         }
-
-        $requestData[] = $account->getStoreKey();
-        // escape | and \ characters
-        $data = str_replace("\\", "\\\\", array_values($requestData));
-        $data = str_replace(self::HASH_SEPARATOR, "\\".self::HASH_SEPARATOR, $data);
-
+        
         $hashStr = implode(self::HASH_SEPARATOR, $data);
-
+        
         return $this->hashString($hashStr);
     }
 
@@ -43,11 +52,31 @@ class EstV3PosCrypt extends AbstractCrypt
      */
     public function check3DHash(AbstractPosAccount $account, array $data): bool
     {
-        $actualHash = $this->create3DHash($account, $data);
+        // Hash hesaplaması için hash, encoding ve countdown parametrelerini çıkar
+        $hashData = $data;
+        unset($hashData['HASH']);
+        unset($hashData['encoding']);
+        unset($hashData['countdown']);
+        
+        // Parametreleri alfabetik olarak sırala
+        ksort($hashData, SORT_NATURAL | SORT_FLAG_CASE);
+        
+        // Parametreleri StoreKey ile birleştir
+        $hashData[] = $account->getStoreKey();
+        
+        // Escape | ve \ karakterleri
+        $dataArray = [];
+        foreach ($hashData as $value) {
+            $value = str_replace("\\", "\\\\", (string)$value);
+            $value = str_replace(self::HASH_SEPARATOR, "\\".self::HASH_SEPARATOR, $value);
+            $dataArray[] = $value;
+        }
+        
+        $hashStr = implode(self::HASH_SEPARATOR, $dataArray);
+        $actualHash = $this->hashString($hashStr);
 
         if ($data['HASH'] === $actualHash) {
             $this->logger->log(LogLevel::DEBUG, 'hash check is successful');
-
             return true;
         }
 

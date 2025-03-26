@@ -63,8 +63,21 @@ class InterPosResponseDataMapper extends AbstractResponseDataMapper implements P
             '3d_auth_response'   => $raw3DAuthResponseData,
             'provision_response' => $rawPaymentResponseData,
         ]);
-        $status              = $raw3DAuthResponseData['mdStatus'];
-        $procReturnCode      = $this->getProcReturnCode($raw3DAuthResponseData);
+        
+        $status = self::TX_DECLINED;
+        $procReturnCode = $this->getProcReturnCode($raw3DAuthResponseData);
+        
+        // DenizBank için özel kontrol: mdStatus ve 3DStatus değerleri her ikisi de 1 olduğunda ödeme başarılı kabul edilir
+        if (
+            (isset($raw3DAuthResponseData['mdStatus']) && $raw3DAuthResponseData['mdStatus'] === '1') &&
+            (isset($raw3DAuthResponseData['3DStatus']) && $raw3DAuthResponseData['3DStatus'] === '1')
+        ) {
+            $status = self::TX_APPROVED;
+            $this->logger->log(LogLevel::DEBUG, 'payment approved based on mdStatus and 3DStatus values');
+        } elseif (self::PROCEDURE_SUCCESS_CODE === $procReturnCode) {
+            $status = self::TX_APPROVED;
+        }
+        
         $paymentResponseData = $this->getDefaultPaymentResponse();
         if (null !== $rawPaymentResponseData) {
             $paymentResponseData = $this->mapPaymentResponse($rawPaymentResponseData);
@@ -75,7 +88,8 @@ class InterPosResponseDataMapper extends AbstractResponseDataMapper implements P
             'proc_return_code'     => $paymentResponseData['proc_return_code'] ?? $procReturnCode,
             'ref_ret_num'          => $paymentResponseData['ref_ret_num'] ?? $raw3DAuthResponseData['HostRefNum'],
             'transaction_security' => $this->mapResponseTransactionSecurity($raw3DAuthResponseData['mdStatus']),
-            'md_status'            => $status,
+            'md_status'            => $raw3DAuthResponseData['mdStatus'],
+            '3d_status'            => $raw3DAuthResponseData['3DStatus'] ?? null,
             'masked_number'        => $raw3DAuthResponseData['Pan'],
             'month'                => null,
             'year'                 => null,
@@ -87,6 +101,7 @@ class InterPosResponseDataMapper extends AbstractResponseDataMapper implements P
             'md_error_message'     => $raw3DAuthResponseData['ErrorMessage'],
             'error_code'           => $paymentResponseData['error_code'] ?? $raw3DAuthResponseData['ErrorCode'],
             'error_message'        => $paymentResponseData['error_message'] ?? $raw3DAuthResponseData['ErrorMessage'],
+            'status'               => $status,
             'status_detail'        => $paymentResponseData['status_detail'] ?? $this->getStatusDetail($procReturnCode),
             '3d_all'               => $raw3DAuthResponseData,
         ];
