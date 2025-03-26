@@ -43,7 +43,20 @@ if (!function_exists('getGateway')) {
 			$handler = new \Monolog\Handler\StreamHandler(__DIR__.'/../var/log/pos.log', \Psr\Log\LogLevel::DEBUG);
 			$logger = new \Monolog\Logger('pos', [$handler]);
 
-			$pos = PosFactory::createPosGateway($account, null, null, $logger);
+			// Konfigürasyon dosyasını yükle
+			$config = require config_path('pos-settings.php');
+            
+            // Symfony Event Dispatcher kullan
+            $eventDispatcher = new \Symfony\Component\EventDispatcher\EventDispatcher();
+
+			// Parametre sırası düzeltildi
+			$pos = PosFactory::createPosGateway(
+				$account,
+				$config, 
+				$eventDispatcher, // eventDispatcher
+				null, // httpClient
+				$logger
+			);
 			$pos->setTestMode(false);
 
 			return $pos;
