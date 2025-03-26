@@ -3,19 +3,24 @@
 /**
  * @license MIT
  */
+
 namespace SinyorPos\Gateways;
 
-use LogicException;
+use SinyorPos\DataMapper\RequestDataMapper\EstPosRequestDataMapper;
+use SinyorPos\DataMapper\RequestDataMapper\RequestDataMapperInterface;
+use SinyorPos\Entity\Account\AbstractPosAccount;
 use SinyorPos\Entity\Account\EstPosAccount;
+use SinyorPos\Entity\Card\CreditCardInterface;
+use SinyorPos\Event\RequestDataPreparedEvent;
 use SinyorPos\Exceptions\HashMismatchException;
-use Psr\Log\LogLevel;
+use SinyorPos\Exceptions\UnsupportedTransactionTypeException;
+use SinyorPos\PosInterface;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * todo cardType verisi dokumantasyona gore kontrol edilmesi gerekiyor.
- * cardType gondermeden de su an calisiyor.
+ * Implementation of Payten Payment Gateway
  *
- * @deprecated use SinyorPos\Gateways\EstV3Pos.
+ * @deprecated use Mews\Pos\Gateways\EstV3Pos.
  * For security reasons this class which uses sha1 hashing algorithm is not recommended to use.
  */
 class EstPos extends AbstractGateway
@@ -24,123 +29,34 @@ class EstPos extends AbstractGateway
     public const NAME = 'EstPos';
 
     /** @var EstPosAccount */
-    protected $account;
+    protected AbstractPosAccount $account;
 
-    /**
-     * @inheritDoc
-     */
-    public function createXML(array $nodes, string $encoding = 'ISO-8859-9', bool $ignorePiNode = false): string
-    {
-        return parent::createXML(['CC5Request' => $nodes], $encoding, $ignorePiNode);
-    }
+    /** @var EstPosRequestDataMapper */
+    protected RequestDataMapperInterface $requestDataMapper;
 
-    /**
-     * @inheritDoc
-     */
-    public function make3DPayment(Request $request)
-    {
-        $request = $request->request;
-        $provisionResponse = null;
-        if (!$this->requestDataMapper->getCrypt()->check3DHash($this->account, $request->all())) {
-            throw new HashMismatchException();
-        }
+    /** @inheritdoc */
+    protected static array $supportedTransactions = [
+        PosInterface::TX_TYPE_PAY_AUTH       => [
+            PosInterface::MODEL_3D_SECURE,
+            PosInterface::MODEL_3D_PAY,
+            PosInterface::MODEL_3D_HOST,
+            PosInterface::MODEL_3D_PAY_HOSTING,
+            PosInterface::MODEL_NON_SECURE,
+        ],
+        PosInterface::TX_TYPE_PAY_PRE_AUTH   => true,
+        PosInterface::TX_TYPE_PAY_POST_AUTH  => true,
+        PosInterface::TX_TYPE_STATUS         => true,
+        PosInterface::TX_TYPE_CANCEL         => true,
+        PosInterface::TX_TYPE_REFUND         => true,
+        PosInterface::TX_TYPE_REFUND_PARTIAL => true,
+        PosInterface::TX_TYPE_ORDER_HISTORY  => true,
+        PosInterface::TX_TYPE_CUSTOM_QUERY   => true,
+        PosInterface::TX_TYPE_HISTORY        => false,
+    ];
 
-        if ($request->get('mdStatus') !== '1') {
-            $this->logger->log(LogLevel::ERROR, '3d auth fail', ['md_status' => $request->get('mdStatus')]);
-            /**
-             * TODO hata durumu ele alinmasi gerekiyor
-             * ornegin soyle bir hata donebilir
-             * ["ProcReturnCode" => "99", "mdStatus" => "7", "mdErrorMsg" => "Isyeri kullanim tipi desteklenmiyor.",
-             * "ErrMsg" => "Isyeri kullanim tipi desteklenmiyor.", "Response" => "Error", "ErrCode" => "3D-1007", ...]
-             */
-        } else {
-            $this->logger->log(LogLevel::DEBUG, 'finishing payment', ['md_status' => $request->get('mdStatus')]);
-            $contents = $this->create3DPaymentXML($request->all());
-            $provisionResponse = $this->send($contents);
-        }
 
-        $this->response = $this->responseDataMapper->map3DPaymentData($request->all(), $provisionResponse);
-        $this->logger->log(LogLevel::DEBUG, 'finished 3D payment', ['mapped_response' => $this->response]);
-
-        return $this;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function make3DPayPayment(Request $request)
-    {
-        if (!$this->requestDataMapper->getCrypt()->check3DHash($this->account, $request->request->all())) {
-            throw new HashMismatchException();
-        }
-        
-        $this->response = $this->responseDataMapper->map3DPayResponseData($request->request->all());
-
-        return $this;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function make3DHostPayment(Request $request)
-    {
-        if (!$this->requestDataMapper->getCrypt()->check3DHash($this->account, $request->request->all())) {
-            throw new HashMismatchException();
-        }
-        
-        $this->response = $this->responseDataMapper->map3DHostResponseData($request->request->all());
-
-        return $this;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function get3DFormData(): array
-    {
-        if ($this->order === null) {
-            $this->logger->log(LogLevel::ERROR, 'tried to get 3D form data without setting order');
-
-            throw new LogicException('Kredi kartı veya sipariş bilgileri eksik!');
-        }
-        
-        $this->logger->log(LogLevel::DEBUG, 'preparing 3D form data');
-
-        return $this->requestDataMapper->create3DFormData($this->account, $this->order, $this->type, $this->get3DGatewayURL(), $this->card);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function send($contents, ?string $url = null)
-    {
-        $url = $this->getApiURL();
-        $this->logger->log(LogLevel::DEBUG, 'sending request', ['url' => $url]);
-        $response = $this->client->post($url, ['body' => $contents]);
-        $this->logger->log(LogLevel::DEBUG, 'request completed', ['status_code' => $response->getStatusCode()]);
-        $this->data = $this->XMLStringToArray($response->getBody()->getContents());
-
-        return $this->data;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function history(array $meta)
-    {
-        $xml = $this->createHistoryXML($meta);
-
-        $bankResponse = $this->send($xml);
-
-        $this->response = $this->responseDataMapper->mapHistoryResponse($bankResponse);
-
-        return $this;
-    }
-
-    /**
-     * @return EstPosAccount
-     */
-    public function getAccount()
+    /** @return EstPosAccount */
+    public function getAccount(): AbstractPosAccount
     {
         return $this->account;
     }
@@ -148,127 +64,144 @@ class EstPos extends AbstractGateway
     /**
      * @inheritDoc
      */
-    public function createRegularPaymentXML()
+    public function make3DPayment(Request $request, array $order, string $txType, CreditCardInterface $creditCard = null): PosInterface
     {
-        $requestData = $this->requestDataMapper->createNonSecurePaymentRequestData($this->account, $this->order, $this->type, $this->card);
+        $request = $request->request;
 
-        return $this->createXML($requestData);
+        /**
+         * TODO hata durumu ele alinmasi gerekiyor
+         * ornegin soyle bir hata donebilir
+         * ["ProcReturnCode" => "99", "mdStatus" => "7", "mdErrorMsg" => "Isyeri kullanim tipi desteklenmiyor.",
+         * "ErrMsg" => "Isyeri kullanim tipi desteklenmiyor.", "Response" => "Error", "ErrCode" => "3D-1007", ...]
+         */
+        if (!$this->is3DAuthSuccess($request->all())) {
+            $this->response = $this->responseDataMapper->map3DPaymentData(
+                $request->all(),
+                null,
+                $txType,
+                $order
+            );
+
+            return $this;
+        }
+
+        if (!$this->requestDataMapper->getCrypt()->check3DHash($this->account, $request->all())) {
+            throw new HashMismatchException();
+        }
+
+        /** @var array{md: string, xid: string, eci: string, cavv: string} $bankPostData */
+        $bankPostData = $request->all();
+
+        $requestData = $this->requestDataMapper->create3DPaymentRequestData($this->account, $order, $txType, $bankPostData);
+
+        $event = new RequestDataPreparedEvent(
+            $requestData,
+            $this->account->getBank(),
+            $txType,
+            \get_class($this),
+            $order,
+            PosInterface::MODEL_3D_SECURE
+        );
+        /** @var RequestDataPreparedEvent $event */
+        $event = $this->eventDispatcher->dispatch($event);
+        if ($requestData !== $event->getRequestData()) {
+            $this->logger->debug('Request data is changed via listeners', [
+                'txType'      => $event->getTxType(),
+                'bank'        => $event->getBank(),
+                'initialData' => $requestData,
+                'updatedData' => $event->getRequestData(),
+            ]);
+            $requestData = $event->getRequestData();
+        }
+
+        $contents          = $this->serializer->encode($requestData, $txType);
+        $provisionResponse = $this->send(
+            $contents,
+            $txType,
+            PosInterface::MODEL_3D_SECURE,
+            $this->getApiURL()
+        );
+
+        $this->response = $this->responseDataMapper->map3DPaymentData(
+            $request->all(),
+            $provisionResponse,
+            $txType,
+            $order
+        );
+        $this->logger->debug('finished 3D payment', ['mapped_response' => $this->response]);
+
+        return $this;
     }
 
     /**
      * @inheritDoc
      */
-    public function createRegularPostXML()
+    public function make3DPayPayment(Request $request, array $order, string $txType): PosInterface
     {
-        $requestData = $this->requestDataMapper->createNonSecurePostAuthPaymentRequestData($this->account, $this->order);
+        if (!$this->requestDataMapper->getCrypt()->check3DHash($this->account, $request->request->all())) {
+            throw new HashMismatchException();
+        }
 
-        return $this->createXML($requestData);
+        $this->response = $this->responseDataMapper->map3DPayResponseData($request->request->all(), $txType, $order);
+
+        return $this;
     }
 
     /**
      * @inheritDoc
      */
-    public function create3DPaymentXML($responseData)
+    public function make3DHostPayment(Request $request, array $order, string $txType): PosInterface
     {
-        $requestData = $this->requestDataMapper->create3DPaymentRequestData($this->account, $this->order, $this->type, $responseData);
+        if (!$this->requestDataMapper->getCrypt()->check3DHash($this->account, $request->request->all())) {
+            throw new HashMismatchException();
+        }
 
-        return $this->createXML($requestData);
+        $this->response = $this->responseDataMapper->map3DHostResponseData($request->request->all(), $txType, $order);
+
+        return $this;
+    }
+
+    /**
+     * @inheritDoc
+     *
+     * @return array{gateway: string, method: 'POST'|'GET', inputs: array<string, string>}
+     */
+    public function get3DFormData(array $order, string $paymentModel, string $txType, CreditCardInterface $creditCard = null, bool $createWithoutCard = true): array
+    {
+        $this->check3DFormInputs($paymentModel, $txType, $creditCard, $createWithoutCard);
+
+        $this->logger->debug('preparing 3D form data');
+
+        return $this->requestDataMapper->create3DFormData(
+            $this->account,
+            $order,
+            $paymentModel,
+            $txType,
+            $this->get3DGatewayURL($paymentModel),
+            $creditCard
+        );
     }
 
     /**
      * @inheritDoc
      */
-    public function createStatusXML()
+    public function history(array $data): PosInterface
     {
-        $requestData = $this->requestDataMapper->createStatusRequestData($this->account, $this->order);
-
-        return $this->createXML($requestData);
+        throw new UnsupportedTransactionTypeException();
     }
 
     /**
      * @inheritDoc
+     *
+     * @return array<string, mixed>
      */
-    public function createHistoryXML($customQueryData)
+    protected function send($contents, string $txType, string $paymentModel, string $url): array
     {
-        $requestData = $this->requestDataMapper->createHistoryRequestData($this->account, $this->order, $customQueryData);
+        $this->logger->debug('sending request', ['url' => $url]);
+        $response = $this->client->post($url, ['body' => $contents]);
 
-        return $this->createXML($requestData);
-    }
+        $this->logger->debug('request completed', ['status_code' => $response->getStatusCode()]);
 
-    /**
-     * @inheritDoc
-     */
-    public function createCancelXML()
-    {
-        $requestData = $this->requestDataMapper->createCancelRequestData($this->account, $this->order);
-
-        return $this->createXML($requestData);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function createRefundXML()
-    {
-        $requestData = $this->requestDataMapper->createRefundRequestData($this->account, $this->order);
-
-        return $this->createXML($requestData);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    protected function preparePaymentOrder(array $order)
-    {
-        return (object) array_merge($order, [
-            'installment' => $order['installment'] ?? 0,
-            'currency'    => $order['currency'] ?? 'TRY',
-        ]);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    protected function preparePostPaymentOrder(array $order)
-    {
-        return (object) [
-            'id' => $order['id'],
-        ];
-    }
-
-    /**
-     * @inheritDoc
-     */
-    protected function prepareStatusOrder(array $order)
-    {
-        return (object) $order;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    protected function prepareHistoryOrder(array $order)
-    {
-        return (object) $order;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    protected function prepareCancelOrder(array $order)
-    {
-        return (object) $order;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    protected function prepareRefundOrder(array $order)
-    {
-        return (object) [
-            'id'       => $order['id'],
-            'currency' => $order['currency'] ?? 'TRY',
-            'amount'   => $order['amount'],
-        ];
+        return $this->data = $this->serializer->decode($response->getBody()->getContents(), $txType);
     }
 }

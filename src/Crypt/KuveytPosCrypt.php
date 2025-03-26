@@ -1,65 +1,58 @@
 <?php
 
+/**
+ * @license MIT
+ */
+
 namespace SinyorPos\Crypt;
 
 use SinyorPos\Entity\Account\AbstractPosAccount;
-use SinyorPos\Entity\Card\AbstractCreditCard;
+use SinyorPos\Exceptions\NotImplementedException;
 
 class KuveytPosCrypt extends AbstractCrypt
 {
-    /** @var string */
-    protected const HASH_ALGORITHM = 'sha512';
-    
-    /** @var string */
-    protected const HASH_SEPARATOR = '|';
-    
     /**
      * {@inheritDoc}
      */
-    public function create3DHash(AbstractPosAccount $account, array $requestData, ?string $txType = null): string
+    public function create3DHash(AbstractPosAccount $posAccount, array $formInputs): string
     {
-        $hashedPassword = $this->hashString($account->getStoreKey());
-
-        $hashData = [
-            $account->getClientId(),
-            $requestData['id'],
-            $requestData['amount'],
-            $requestData['success_url'],
-            $requestData['fail_url'],
-            $account->getUsername(),
-            $hashedPassword,
-        ];
-
-        $hashStr = implode(static::HASH_SEPARATOR, $hashData);
-
-        return $this->hashString($hashStr);
+        throw new NotImplementedException();
     }
 
     /**
-     * todo implement
      * {@inheritdoc}
      */
-    public function check3DHash(AbstractPosAccount $account, array $data): bool
+    public function check3DHash(AbstractPosAccount $posAccount, array $data): bool
     {
-        return true;
+        throw new NotImplementedException();
     }
 
     /**
      * {@inheritDoc}
      */
-    public function createHash(AbstractPosAccount $account, array $requestData, ?string $txType = null, ?AbstractCreditCard $card = null): string
+    public function createHash(AbstractPosAccount $posAccount, array $requestData): string
     {
-        $hashedPassword = $this->hashString($account->getStoreKey());
+        if (null === $posAccount->getStoreKey()) {
+            throw new \LogicException('Account storeKey eksik!');
+        }
+
+        $hashedPassword = $this->hashString($posAccount->getStoreKey());
 
         $hashData = [
-            $account->getClientId(),
-            $requestData['id'],
-            $requestData['amount'],
-            $account->getUsername(),
+            $requestData['MerchantId'],
+            // non-payment request may not have MerchantOrderId and Amount fields
+            $requestData['MerchantOrderId'] ?? '',
+            $requestData['Amount'] ?? '',
+
+            // non 3d payments does not have OkUrl and FailUrl fields
+            $requestData['OkUrl'] ?? '',
+            $requestData['FailUrl'] ?? '',
+
+            $requestData['UserName'],
             $hashedPassword,
         ];
 
-        $hashStr = implode(static::HASH_SEPARATOR, $hashData);
+        $hashStr = \implode(static::HASH_SEPARATOR, $hashData);
 
         return $this->hashString($hashStr);
     }
