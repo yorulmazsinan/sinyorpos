@@ -1,9 +1,7 @@
 <?php
-
 /**
  * @license MIT
  */
-
 namespace SinyorPos\Entity\Account;
 
 /**
@@ -11,15 +9,27 @@ namespace SinyorPos\Entity\Account;
  */
 class PosNetAccount extends AbstractPosAccount
 {
+    /** @var string */
+    private $terminalId;
+
+    /** @var string */
+    private $posNetId;
+
     public function __construct(
         string $bank,
+        string $model,
         string $clientId,
-        string $posNetId,
-        string $terminalId,
+        string $username,
+        string $password,
         string $lang,
+        string $terminalId,
+        string $posNetId,
         ?string $storeKey = null
     ) {
-        parent::__construct($bank, $clientId, $posNetId, $terminalId, $lang, $storeKey);
+        parent::__construct($bank, $model, $clientId, $username, $password, $lang, $storeKey);
+        $this->model = $model;
+        $this->terminalId = $terminalId;
+        $this->posNetId = $posNetId;
     }
 
     /**
@@ -27,7 +37,7 @@ class PosNetAccount extends AbstractPosAccount
      */
     public function getTerminalId(): string
     {
-        return $this->password;
+        return $this->terminalId;
     }
 
     /**
@@ -35,6 +45,6 @@ class PosNetAccount extends AbstractPosAccount
      */
     public function getPosNetId(): string
     {
-        return $this->username;
+        return $this->posNetId;
     }
 }

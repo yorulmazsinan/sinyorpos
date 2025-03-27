@@ -1,15 +1,10 @@
 <?php
 
-/**
- * @license MIT
- */
-
 namespace SinyorPos\DataMapper\ResponseDataMapper;
 
-use SinyorPos\Exceptions\NotImplementedException;
-use SinyorPos\PosInterface;
+use Psr\Log\LogLevel;
 
-class PosNetResponseDataMapper extends AbstractResponseDataMapper
+class PosNetResponseDataMapper extends AbstractResponseDataMapper implements PaymentResponseMapperInterface, NonPaymentResponseMapperInterface
 {
     /** @var string */
     public const PROCEDURE_SUCCESS_CODE = '1';
@@ -19,7 +14,7 @@ class PosNetResponseDataMapper extends AbstractResponseDataMapper
      *
      * @var array<int|string, string>
      */
-    protected array $codes = [
+    protected $codes = [
         self::PROCEDURE_SUCCESS_CODE => self::TX_APPROVED,
         '0'                          => 'declined',
         '2'                          => 'declined',
@@ -46,13 +41,12 @@ class PosNetResponseDataMapper extends AbstractResponseDataMapper
     /**
      * {@inheritDoc}
      */
-    public function mapPaymentResponse(array $rawPaymentResponseData, string $txType, array $order): array
+    public function mapPaymentResponse(array $rawPaymentResponseData): array
     {
         $status = self::TX_DECLINED;
-        $this->logger->debug('mapping payment response', [$rawPaymentResponseData]);
-        $defaultResponse = $this->getDefaultPaymentResponse($txType, PosInterface::MODEL_NON_SECURE);
-        if ([] === $rawPaymentResponseData) {
-            return $defaultResponse;
+        $this->logger->log(LogLevel::DEBUG, 'mapping payment response', [$rawPaymentResponseData]);
+        if ($rawPaymentResponseData === []) {
+            return $this->getDefaultPaymentResponse();
         }
 
         $rawPaymentResponseData = $this->emptyStringsToNull($rawPaymentResponseData);
@@ -66,57 +60,40 @@ class PosNetResponseDataMapper extends AbstractResponseDataMapper
             $status = self::TX_APPROVED;
         }
 
-        $defaultResponse['order_id']         = $order['id'];
-        $defaultResponse['currency']         = $order['currency'];
-        $defaultResponse['amount']           = $order['amount'];
-        $defaultResponse['auth_code']        = $rawPaymentResponseData['authCode'] ?? null;
-        $defaultResponse['ref_ret_num']      = $rawPaymentResponseData['hostlogkey'] ?? null;
-        $defaultResponse['proc_return_code'] = $procReturnCode;
-        $defaultResponse['status']           = $status;
-        $defaultResponse['status_detail']    = $this->getStatusDetail($errorCode ?? $procReturnCode);
-        $defaultResponse['error_code']       = $errorCode;
-        $defaultResponse['error_message']    = $rawPaymentResponseData['respText'] ?? null;
-        $defaultResponse['all']              = $rawPaymentResponseData;
-
-        if (self::TX_APPROVED === $status) {
-            $defaultResponse['installment_count'] = $this->mapInstallment($rawPaymentResponseData['instInfo']['inst1']);
-            $defaultResponse['transaction_time']  = new \DateTimeImmutable();
-        }
-
-        return $defaultResponse;
+        return [
+            'order_id'         => null,
+            'trans_id'         => null,
+            'auth_code'        => $rawPaymentResponseData['authCode'] ?? null,
+            'ref_ret_num'      => $rawPaymentResponseData['hostlogkey'] ?? null,
+            'proc_return_code' => $procReturnCode,
+            'status'           => $status,
+            'status_detail'    => $this->getStatusDetail($errorCode ?? $procReturnCode),
+            'error_code'       => $errorCode,
+            'error_message'    => $rawPaymentResponseData['respText'] ?? null,
+            'all'              => $rawPaymentResponseData,
+        ];
     }
 
     /**
      * {@inheritdoc}
      */
-    public function map3DPaymentData(array $raw3DAuthResponseData, ?array $rawPaymentResponseData, string $txType, array $order): array
+    public function map3DPaymentData(array $raw3DAuthResponseData, ?array $rawPaymentResponseData): array
     {
-        $this->logger->debug('mapping 3D payment data', [
+        $this->logger->log(LogLevel::DEBUG, 'mapping 3D payment data', [
             '3d_auth_response'   => $raw3DAuthResponseData,
             'provision_response' => $rawPaymentResponseData,
         ]);
         $raw3DAuthResponseData = $this->emptyStringsToNull($raw3DAuthResponseData);
         $status                = self::TX_DECLINED;
-        $procReturnCode        = $this->getProcReturnCode($raw3DAuthResponseData);
+        $procReturnCode        = $this->getProcReturnCode($raw3DAuthResponseData); //test
         if (self::PROCEDURE_SUCCESS_CODE === $procReturnCode && $this->getStatusDetail($procReturnCode) === self::TX_APPROVED) {
             $status = self::TX_APPROVED;
-        }
-
-        $defaultResponse = $this->getDefaultPaymentResponse($txType, PosInterface::MODEL_3D_SECURE);
-
-        if (!isset($raw3DAuthResponseData['oosResolveMerchantDataResponse'])) {
-            $defaultResponse['proc_return_code'] = $procReturnCode;
-            $defaultResponse['error_code']       = $raw3DAuthResponseData['respCode'];
-            $defaultResponse['error_message']    = $raw3DAuthResponseData['respText'];
-            $defaultResponse['3d_all']           = $raw3DAuthResponseData;
-
-            return $defaultResponse;
         }
 
         /** @var array<string, string|null> $oosResolveMerchantDataResponse */
         $oosResolveMerchantDataResponse = $raw3DAuthResponseData['oosResolveMerchantDataResponse'];
 
-        $mdStatus            = $this->extractMdStatus($raw3DAuthResponseData);
+        $mdStatus = $oosResolveMerchantDataResponse['mdStatus'];
         $transactionSecurity = null;
         if (null === $mdStatus) {
             $this->logger->error('mdStatus boş döndü. Sağlanan banka API bilgileri eksik/yanlış olabilir.');
@@ -125,11 +102,8 @@ class PosNetResponseDataMapper extends AbstractResponseDataMapper
         }
 
         $threeDResponse = [
-            'order_id'             => $order['id'],
-            'remote_order_id'      => $oosResolveMerchantDataResponse['xid'] ?? null,
+            'order_id'             => $oosResolveMerchantDataResponse['xid'] ?? null,
             'transaction_security' => $transactionSecurity,
-            'amount'               => $this->formatAmount((string) $oosResolveMerchantDataResponse['amount']),
-            'currency'             => $this->mapCurrency((string) $oosResolveMerchantDataResponse['currency']),
             'proc_return_code'     => $procReturnCode,
             'status'               => $status,
             'status_detail'        => $this->getStatusDetail($procReturnCode),
@@ -138,13 +112,9 @@ class PosNetResponseDataMapper extends AbstractResponseDataMapper
             '3d_all'               => $raw3DAuthResponseData,
         ];
         if (null === $rawPaymentResponseData) {
-            $paymentResponseData = $defaultResponse;
+            $paymentResponseData = $this->getDefaultPaymentResponse();
         } else {
-            $paymentResponseData = $this->map3dPaymentResponseCommon(
-                $rawPaymentResponseData,
-                $txType,
-                PosInterface::MODEL_3D_SECURE
-            );
+            $paymentResponseData = $this->mapPaymentResponse($rawPaymentResponseData);
         }
 
         return $this->mergeArraysPreferNonNullValues($threeDResponse, $paymentResponseData);
@@ -153,17 +123,17 @@ class PosNetResponseDataMapper extends AbstractResponseDataMapper
     /**
      * {@inheritdoc}
      */
-    public function map3DPayResponseData(array $raw3DAuthResponseData, string $txType, array $order): array
+    public function map3DPayResponseData($raw3DAuthResponseData): array
     {
-        throw new NotImplementedException();
+        return $this->map3DPaymentData($raw3DAuthResponseData, $raw3DAuthResponseData);
     }
 
     /**
      * {@inheritdoc}
      */
-    public function map3DHostResponseData(array $raw3DAuthResponseData, string $txType, array $order): array
+    public function map3DHostResponseData(array $raw3DAuthResponseData): array
     {
-        throw new NotImplementedException();
+        return $this->map3DPayResponseData($raw3DAuthResponseData);
     }
 
     /**
@@ -195,11 +165,11 @@ class PosNetResponseDataMapper extends AbstractResponseDataMapper
 
         $results = [
             'auth_code'        => null,
-            'transaction_id'   => null,
+            'trans_id'         => null,
             'ref_ret_num'      => null,
             'group_id'         => null,
             'date'             => null,
-            'transaction_type' => $transactionType,
+            'transaction_type'          => $transactionType,
             'proc_return_code' => $procReturnCode,
             'status'           => $status,
             'status_detail'    => $this->getStatusDetail($procReturnCode),
@@ -214,7 +184,7 @@ class PosNetResponseDataMapper extends AbstractResponseDataMapper
         if (null !== $transactionDetails) {
             $txResults = [
                 'auth_code'   => $transactionDetails['authCode'] ?? null,
-                'transaction_id'    => null,
+                'trans_id'    => null,
                 'ref_ret_num' => $transactionDetails['hostlogkey'] ?? null,
                 'date'        => $transactionDetails['tranDate'] ?? null,
             ];
@@ -237,39 +207,50 @@ class PosNetResponseDataMapper extends AbstractResponseDataMapper
             $status = self::TX_APPROVED;
         }
 
+        $state     = null;
         $txResults = [];
-
-        $defaultResponse = $this->getDefaultStatusResponse($rawResponseData);
 
         if (isset($rawResponseData['transactions']['transaction'])) {
             $transactionDetails = $rawResponseData['transactions']['transaction'];
 
+            $state    = $transactionDetails['state'] ?? null;
+            $authCode = $transactionDetails['authCode'] ?? null;
+
             $txResults = [
-                'currency'         => $this->mapCurrency($transactionDetails['currencyCode']),
-                'first_amount'     => $this->formatStatusAmount($transactionDetails['amount']),
-                'transaction_type' => null === $transactionDetails['state'] ? null : $this->mapTxType($transactionDetails['state']),
-                'order_id'         => $transactionDetails['orderID'],
-                'auth_code'        => $transactionDetails['authCode'] ?? null,
-                'ref_ret_num'      => $transactionDetails['hostlogkey'] ?? null,
-                // tranDate ex: 2019-10-10 11:21:14.281
-                'transaction_time' => isset($transactionDetails['tranDate']) ? new \DateTimeImmutable($transactionDetails['tranDate']) : null,
+                'auth_code'   => $authCode,
+                'trans_id'    => null,
+                'ref_ret_num' => $transactionDetails['hostlogkey'] ?? null,
+                'date'        => $transactionDetails['tranDate'] ?? null,
             ];
         }
 
-        $defaultResponse['proc_return_code'] = $procReturnCode;
-        $defaultResponse['status']           = $status;
-        $defaultResponse['status_detail']    = $this->getStatusDetail($procReturnCode);
-        $defaultResponse['error_code']       = self::TX_APPROVED !== $status ? $errorCode : null;
-        $defaultResponse['error_message']    = self::TX_APPROVED !== $status ? ($rawResponseData['respText'] ?? null) : null;
+        $transactionType = null;
+        if (null !== $state) {
+            $transactionType = $this->mapTxType($state);
+        }
 
-        return $this->mergeArraysPreferNonNullValues($defaultResponse, $txResults);
+        $results = [
+            'auth_code'        => null,
+            'trans_id'         => null,
+            'ref_ret_num'      => null,
+            'group_id'         => null,
+            'date'             => null,
+            'transaction_type' => $transactionType,
+            'proc_return_code' => $procReturnCode,
+            'status'           => $status,
+            'status_detail'    => $this->getStatusDetail($procReturnCode),
+            'error_code'       => $errorCode,
+            'error_message'    => $rawResponseData['respText'] ?? null,
+            'all'              => $rawResponseData,
+        ];
+
+        return array_merge($results, $txResults);
     }
 
     /**
-     * todo refactor
      * {@inheritDoc}
      */
-    public function mapOrderHistoryResponse(array $rawResponseData): array
+    public function mapHistoryResponse(array $rawResponseData): array
     {
         $status          = self::TX_DECLINED;
         $rawResponseData = $this->emptyStringsToNull($rawResponseData);
@@ -290,7 +271,7 @@ class PosNetResponseDataMapper extends AbstractResponseDataMapper
             $authCode = $transactionDetails['authCode'] ?? null;
 
             if (is_array($transactionDetails)) {
-                if ([] !== $transactionDetails) {
+                if ($transactionDetails !== []) {
                     $state    = $transactionDetails[0]['state'];
                     $authCode = $transactionDetails[0]['authCode'];
                 }
@@ -312,7 +293,7 @@ class PosNetResponseDataMapper extends AbstractResponseDataMapper
 
             $txResults = [
                 'auth_code'   => $authCode,
-                'transaction_id'    => null,
+                'trans_id'    => null,
                 'ref_ret_num' => $transactionDetails['hostlogkey'] ?? null,
                 'date'        => $transactionDetails['tranDate'] ?? null,
             ];
@@ -325,11 +306,11 @@ class PosNetResponseDataMapper extends AbstractResponseDataMapper
 
         $results = [
             'auth_code'        => null,
-            'transaction_id'   => null,
+            'trans_id'         => null,
             'ref_ret_num'      => null,
             'group_id'         => null,
             'date'             => null,
-            'transaction_type' => $transactionType,
+            'transaction_type'          => $transactionType,
             'proc_return_code' => $procReturnCode,
             'status'           => $status,
             'status_detail'    => $this->getStatusDetail($procReturnCode),
@@ -339,31 +320,7 @@ class PosNetResponseDataMapper extends AbstractResponseDataMapper
             'all'              => $rawResponseData,
         ];
 
-        return \array_merge($results, $txResults);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    public function mapHistoryResponse(array $rawResponseData): array
-    {
-        throw new NotImplementedException();
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function is3dAuthSuccess(?string $mdStatus): bool
-    {
-        return \in_array($mdStatus, ['1', '2', '3', '4'], true);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function extractMdStatus(array $raw3DAuthResponseData): ?string
-    {
-        return $raw3DAuthResponseData['oosResolveMerchantDataResponse']['mdStatus'] ?? null;
+        return array_merge($results, $txResults);
     }
 
     /**
@@ -376,7 +333,7 @@ class PosNetResponseDataMapper extends AbstractResponseDataMapper
         $transactionSecurity = 'MPI fallback';
         if ('1' === $mdStatus) {
             $transactionSecurity = 'Full 3D Secure';
-        } elseif (\in_array($mdStatus, ['2', '3', '4'])) {
+        } elseif (in_array($mdStatus, ['2', '3', '4'])) {
             $transactionSecurity = 'Half 3D Secure';
         }
 
@@ -405,73 +362,5 @@ class PosNetResponseDataMapper extends AbstractResponseDataMapper
     protected function getProcReturnCode(array $response): ?string
     {
         return $response['approved'] ?? null;
-    }
-
-    /**
-     * "100001" => 1000.01
-     * @param string $amount
-     *
-     * @return float
-     */
-    protected function formatAmount(string $amount): float
-    {
-        return ((int) $amount) / 100;
-    }
-
-    /**
-     * "1,16" => 1.16
-     * @param string $amount
-     *
-     * @return float
-     */
-    protected function formatStatusAmount(string $amount): float
-    {
-        return (float) \str_replace(',', '.', \str_replace('.', '', $amount));
-    }
-
-    /**
-     * @phpstan-param PosInterface::TX_TYPE_PAY_AUTH|PosInterface::TX_TYPE_PAY_PRE_AUTH $txType
-     * @phpstan-param PosInterface::MODEL_3D_*                                          $paymentModel
-     *
-     * @param array<string, mixed> $rawPaymentResponseData
-     * @param string               $txType
-     * @param string               $paymentModel
-     *
-     * @return array<string, mixed>
-     */
-    private function map3dPaymentResponseCommon(array $rawPaymentResponseData, string $txType, string $paymentModel): array
-    {
-        $status = self::TX_DECLINED;
-        $this->logger->debug('mapping payment response', [$rawPaymentResponseData]);
-        $defaultResponse = $this->getDefaultPaymentResponse($txType, $paymentModel);
-        if ([] === $rawPaymentResponseData) {
-            return $defaultResponse;
-        }
-
-        $rawPaymentResponseData = $this->emptyStringsToNull($rawPaymentResponseData);
-        $errorCode              = $rawPaymentResponseData['respCode'] ?? null;
-        $procReturnCode         = $this->getProcReturnCode($rawPaymentResponseData);
-        if (
-            self::PROCEDURE_SUCCESS_CODE === $procReturnCode
-            && $this->getStatusDetail($procReturnCode) === self::TX_APPROVED
-            && !$errorCode
-        ) {
-            $status = self::TX_APPROVED;
-        }
-
-        $defaultResponse['auth_code']        = $rawPaymentResponseData['authCode'] ?? null;
-        $defaultResponse['ref_ret_num']      = $rawPaymentResponseData['hostlogkey'] ?? null;
-        $defaultResponse['proc_return_code'] = $procReturnCode;
-        $defaultResponse['status']           = $status;
-        $defaultResponse['status_detail']    = $this->getStatusDetail($errorCode ?? $procReturnCode);
-        $defaultResponse['error_code']       = $errorCode;
-        $defaultResponse['error_message']    = $rawPaymentResponseData['respText'] ?? null;
-        $defaultResponse['all']              = $rawPaymentResponseData;
-        if (self::TX_APPROVED === $status) {
-            $defaultResponse['installment_count'] = $this->mapInstallment($rawPaymentResponseData['instInfo']['inst1']);
-            $defaultResponse['transaction_time']  = new \DateTimeImmutable();
-        }
-
-        return $defaultResponse;
     }
 }

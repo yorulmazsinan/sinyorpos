@@ -1,12 +1,11 @@
 <?php
 
-/**
- * @license MIT
- */
-
 namespace SinyorPos\Crypt;
 
 use SinyorPos\Entity\Account\AbstractPosAccount;
+use SinyorPos\Entity\Account\PosNetAccount;
+use SinyorPos\Entity\Card\AbstractCreditCard;
+use Psr\Log\LogLevel;
 
 class PosNetV1PosCrypt extends AbstractCrypt
 {
@@ -17,46 +16,44 @@ class PosNetV1PosCrypt extends AbstractCrypt
     protected const HASH_SEPARATOR = '';
 
     /**
+     * @param PosNetAccount $account
+     *
      * {@inheritDoc}
      */
-    public function create3DHash(AbstractPosAccount $posAccount, array $formInputs, ?string $txType = null): string
+    public function create3DHash(AbstractPosAccount $account, array $requestData, ?string $txType = null): string
     {
         $hashData = [
-            $formInputs['MerchantNo'],
-            $formInputs['TerminalNo'],
-            // no card data for 3D host payment
-            $formInputs['CardNo'] ?? null,
-            $formInputs['Cvv'] ?? null,
-            $formInputs['ExpiredDate'] ?? null,
-
-            $formInputs['Amount'],
-            $posAccount->getStoreKey(),
+            $account->getClientId(),
+            $account->getTerminalId(),
+            $requestData['CardNo'],
+            $requestData['Cvv'],
+            $requestData['ExpiredDate'],
+            $requestData['Amount'],
+            $account->getStoreKey(),
         ];
-        $hashStr  = \implode(static::HASH_SEPARATOR, $hashData);
+        $hashStr  = implode(static::HASH_SEPARATOR, $hashData);
 
         return $this->hashString($hashStr);
     }
 
     /**
+     * @param PosNetAccount $account
+     *
      * {@inheritdoc}
      */
-    public function check3DHash(AbstractPosAccount $posAccount, array $data): bool
+    public function check3DHash(AbstractPosAccount $account, array $data): bool
     {
-        if (null === $posAccount->getStoreKey()) {
-            throw new \LogicException('Account storeKey eksik!');
-        }
-
-        $actualHash = $this->hashFromParams($posAccount->getStoreKey(), $data, 'MacParams', ':');
+        $actualHash = $this->hashFromParams((string) $account->getStoreKey(), $data, 'MacParams', ':');
 
         if ($actualHash !== $data['Mac']) {
-            $this->logger->error('hash check failed', [
+            $this->logger->log(LogLevel::ERROR, 'hash check failed', [
                 'order_id' => $data['OrderId'],
             ]);
 
             return false;
         }
 
-        $this->logger->debug('hash check is successful', [
+        $this->logger->log(LogLevel::DEBUG, 'hash check is successful', [
             'order_id' => $data['OrderId'],
         ]);
 
@@ -64,27 +61,26 @@ class PosNetV1PosCrypt extends AbstractCrypt
     }
 
     /**
+     * @param PosNetAccount $account
      * @param array<string, string|array<string, string>> $requestData
      *
      * @inheritDoc
      */
-    public function createHash(AbstractPosAccount $posAccount, array $requestData): string
+    public function createHash(AbstractPosAccount $account, array $requestData, ?string $txType = null, ?AbstractCreditCard $card = null): string
     {
         /** @var array<string, string> $threeDSecureData */
         $threeDSecureData = $requestData['ThreeDSecureData'];
-
-        /** @var array<string, string> $hashData */
         $hashData = [
-            $requestData['MerchantNo'],
-            $requestData['TerminalNo'],
+            $account->getClientId(),
+            $account->getTerminalId(),
             $threeDSecureData['SecureTransactionId'],
             $threeDSecureData['CavvData'],
             $threeDSecureData['Eci'],
             $threeDSecureData['MdStatus'],
-            $posAccount->getStoreKey() ?? '',
+            $account->getStoreKey(),
         ];
 
-        $hashStr = \implode(static::HASH_SEPARATOR, $hashData);
+        $hashStr = implode(static::HASH_SEPARATOR, $hashData);
 
         return $this->hashString($hashStr);
     }

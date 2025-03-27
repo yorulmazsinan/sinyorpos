@@ -1,9 +1,5 @@
 <?php
 
-/**
- * @license MIT
- */
-
 namespace SinyorPos\Crypt;
 
 use Psr\Log\LoggerInterface;
@@ -18,30 +14,17 @@ abstract class AbstractCrypt implements CryptInterface
     /** @var string */
     protected const HASH_SEPARATOR = '';
 
-    protected LoggerInterface $logger;
+    /** @var LoggerInterface */
+    protected $logger;
 
-    /**
-     * @param LoggerInterface $logger
-     */
     public function __construct(LoggerInterface $logger)
     {
         $this->logger = $logger;
     }
 
-    /**
-     * @inheritDoc
-     */
-    public function generateRandomString(int $length = 24): string
+    protected function hashString(string $str): string
     {
-        $characters = '0123456789ABCDEF';
-        $charactersLength = \strlen($characters);
-        $randomString = '';
-
-        for ($i = 0; $i < $length; ++$i) {
-            $randomString .= $characters[\random_int(0, $charactersLength - 1)];
-        }
-
-        return $randomString;
+        return base64_encode(hash(static::HASH_ALGORITHM, $str, true));
     }
 
     /**
@@ -53,74 +36,24 @@ abstract class AbstractCrypt implements CryptInterface
         if ('' === $hashParams) {
             return '';
         }
-
         /**
          * @var non-empty-string $hashParams ex: "MerchantNo:TerminalNo:ReferenceCode:OrderId"
          */
-        $hashParamsArr = \explode($paramSeparator, $hashParams);
+        $hashParamsArr = explode($paramSeparator, $hashParams);
 
-        $hashVal = $this->buildHashString($data, $hashParamsArr, '', $storeKey);
-
-        return $this->hashString($hashVal, $storeKey);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function hashString(string $str, ?string $encryptionKey = null): string
-    {
-        return \base64_encode(\hash(static::HASH_ALGORITHM, $str, true));
-    }
-
-    /**
-     * @param string $hashKey
-     * @param string $hashString
-     *
-     * @return string
-     */
-    protected function concatenateHashKey(string $hashKey, string $hashString): string
-    {
-        return $hashString.$hashKey;
-    }
-
-    /**
-     * @param array<string, mixed> $data       data from which the hash string will be built
-     * @param string[]             $paramNames parameter names that will be used in hash calculation
-     * @param string               $separator  separator between the parameter values
-     * @param string|null          $storeKey   secret key of the API, will be attached to the hash string if provided
-     *
-     * @return string string data to be hashed
-     */
-    protected function buildHashString(array $data, array $paramNames, string $separator = '', ?string $storeKey = null): string
-    {
-        $paramsVal = \implode($separator, $this->buildHashData($data, $paramNames));
-
-        if (null !== $storeKey) {
-            $paramsVal = $this->concatenateHashKey($storeKey, $paramsVal);
+        $paramsVal = '';
+        foreach ($hashParamsArr as $paramKey) {
+            $paramsVal .= $this->recursiveFind($data, $paramKey);
         }
 
-        return $paramsVal;
-    }
+        $hashVal = $paramsVal.$storeKey;
 
-    /**
-     * @param array<string, mixed> $data       data from which the hash string will be built
-     * @param string[]             $paramNames parameter names that will be used in hash calculation
-     *
-     * @return string[]
-     */
-    protected function buildHashData(array $data, array $paramNames): array
-    {
-        $paramsVal = [];
-        foreach ($paramNames as $paramKey) {
-            $paramsVal[] = $this->recursiveFind($data, $paramKey);
-        }
-
-        return $paramsVal;
+        return $this->hashString($hashVal);
     }
 
     /**
      * @param array<string, mixed> $haystack (multidimensional) array
-     * @param string               $needle   key name that will be searched in the (multidimensional) array
+     * @param string $needle key name that will be searched in the (multidimensional) array
      *
      * @return string the value of the $needle in the (multidimensional) array
      */

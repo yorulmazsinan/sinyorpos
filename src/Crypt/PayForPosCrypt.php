@@ -1,33 +1,32 @@
 <?php
 
-/**
- * @license MIT
- */
-
 namespace SinyorPos\Crypt;
 
+use SinyorPos\DataMapper\PayForPosRequestDataMapper;
 use SinyorPos\Entity\Account\AbstractPosAccount;
+use SinyorPos\Entity\Card\AbstractCreditCard;
 use SinyorPos\Exceptions\NotImplementedException;
+use Psr\Log\LogLevel;
 
 class PayForPosCrypt extends AbstractCrypt
 {
     /**
      * {@inheritDoc}
      */
-    public function create3DHash(AbstractPosAccount $posAccount, array $formInputs): string
+    public function create3DHash(AbstractPosAccount $account, array $requestData, ?string $txType = null): string
     {
         $hashData = [
-            $formInputs['MbrId'],
-            $formInputs['OrderId'],
-            $formInputs['PurchAmount'],
-            $formInputs['OkUrl'],
-            $formInputs['FailUrl'],
-            $formInputs['TxnType'],
-            $formInputs['InstallmentCount'],
-            $formInputs['Rnd'],
-            $posAccount->getStoreKey(),
+            PayForPosRequestDataMapper::MBR_ID,
+            $requestData['id'],
+            $requestData['amount'],
+            $requestData['success_url'],
+            $requestData['fail_url'],
+            $txType,
+            $requestData['installment'],
+            $requestData['rand'],
+            $account->getStoreKey(),
         ];
-        $hashStr = \implode(static::HASH_SEPARATOR, $hashData);
+        $hashStr = implode(static::HASH_SEPARATOR, $hashData);
 
         return $this->hashString($hashStr);
     }
@@ -35,30 +34,30 @@ class PayForPosCrypt extends AbstractCrypt
     /**
      * {@inheritdoc}
      */
-    public function check3DHash(AbstractPosAccount $posAccount, array $data): bool
+    public function check3DHash(AbstractPosAccount $account, array $data): bool
     {
         $hashData = [
-            $posAccount->getClientId(),
-            $posAccount->getStoreKey(),
+            $account->getClientId(),
+            $account->getStoreKey(),
             $data['OrderId'],
             $data['AuthCode'],
             $data['ProcReturnCode'],
             $data['3DStatus'],
             $data['ResponseRnd'],
-            $posAccount->getUsername(),
+            $account->getUsername(),
         ];
 
-        $hashStr = \implode(static::HASH_SEPARATOR, $hashData);
+        $hashStr = implode(static::HASH_SEPARATOR, $hashData);
 
         $hash = $this->hashString($hashStr);
 
         if ($hash === $data['ResponseHash']) {
-            $this->logger->debug('hash check is successful');
+            $this->logger->log(LogLevel::DEBUG, 'hash check is successful');
 
             return true;
         }
 
-        $this->logger->error('hash check failed', [
+        $this->logger->log(LogLevel::ERROR, 'hash check failed', [
             'data'           => $data,
             'generated_hash' => $hash,
             'expected_hash'  => $data['ResponseHash'],
@@ -67,10 +66,7 @@ class PayForPosCrypt extends AbstractCrypt
         return false;
     }
 
-    /**
-     * @inheritdoc
-     */
-    public function createHash(AbstractPosAccount $posAccount, array $requestData): string
+    public function createHash(AbstractPosAccount $account, array $requestData, ?string $txType = null, ?AbstractCreditCard $card = null): string
     {
         throw new NotImplementedException();
     }

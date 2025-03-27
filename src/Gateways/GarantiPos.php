@@ -1,22 +1,16 @@
 <?php
-
 /**
  * @license MIT
  */
-
 namespace SinyorPos\Gateways;
 
-use SinyorPos\DataMapper\RequestDataMapper\GarantiPosRequestDataMapper;
-use SinyorPos\DataMapper\RequestDataMapper\RequestDataMapperInterface;
+use LogicException;
+use SinyorPos\DataMapper\GarantiPosRequestDataMapper;
 use SinyorPos\DataMapper\ResponseDataMapper\GarantiPosResponseDataMapper;
-use SinyorPos\DataMapper\ResponseDataMapper\ResponseDataMapperInterface;
-use SinyorPos\Entity\Account\AbstractPosAccount;
 use SinyorPos\Entity\Account\GarantiPosAccount;
-use SinyorPos\Entity\Card\CreditCardInterface;
-use SinyorPos\Event\RequestDataPreparedEvent;
 use SinyorPos\Exceptions\HashMismatchException;
-use SinyorPos\Exceptions\UnsupportedPaymentModelException;
-use SinyorPos\PosInterface;
+use SinyorPos\Exceptions\NotImplementedException;
+use Psr\Log\LogLevel;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -28,39 +22,18 @@ class GarantiPos extends AbstractGateway
     public const NAME = 'GarantiPay';
 
     /** @var GarantiPosAccount */
-    protected AbstractPosAccount $account;
+    protected $account;
 
     /** @var GarantiPosRequestDataMapper */
-    protected RequestDataMapperInterface $requestDataMapper;
+    protected $requestDataMapper;
 
     /** @var GarantiPosResponseDataMapper */
-    protected ResponseDataMapperInterface $responseDataMapper;
+    protected $responseDataMapper;
 
-    /** @inheritdoc */
-    protected static array $supportedTransactions = [
-        PosInterface::TX_TYPE_PAY_AUTH       => [
-            PosInterface::MODEL_3D_SECURE,
-            PosInterface::MODEL_3D_PAY,
-            PosInterface::MODEL_NON_SECURE,
-        ],
-        PosInterface::TX_TYPE_PAY_PRE_AUTH   => [
-            PosInterface::MODEL_3D_SECURE,
-            PosInterface::MODEL_3D_PAY,
-            PosInterface::MODEL_NON_SECURE,
-        ],
-        PosInterface::TX_TYPE_PAY_POST_AUTH  => true,
-        PosInterface::TX_TYPE_STATUS         => true,
-        PosInterface::TX_TYPE_CANCEL         => true,
-        PosInterface::TX_TYPE_REFUND         => true,
-        PosInterface::TX_TYPE_REFUND_PARTIAL => true,
-        PosInterface::TX_TYPE_ORDER_HISTORY  => true,
-        PosInterface::TX_TYPE_HISTORY        => true,
-        PosInterface::TX_TYPE_CUSTOM_QUERY   => true,
-    ];
-
-
-    /** @return GarantiPosAccount */
-    public function getAccount(): AbstractPosAccount
+    /**
+     * @return GarantiPosAccount
+     */
+    public function getAccount()
     {
         return $this->account;
     }
@@ -68,52 +41,34 @@ class GarantiPos extends AbstractGateway
     /**
      * @inheritDoc
      */
-    public function make3DPayment(Request $request, array $order, string $txType, CreditCardInterface $creditCard = null): PosInterface
+    public function createXML(array $nodes, string $encoding = 'UTF-8', bool $ignorePiNode = false): string
+    {
+        return parent::createXML(['GVPSRequest' => $nodes], $encoding, $ignorePiNode);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function make3DPayment(Request $request)
     {
         $request = $request->request;
-
-        if (!$this->is3DAuthSuccess($request->all())) {
-            $this->response = $this->responseDataMapper->map3DPaymentData($request->all(), null, $txType, $order);
-
-            return $this;
-        }
-
+        $bankResponse = null;
         if (!$this->requestDataMapper->getCrypt()->check3DHash($this->account, $request->all())) {
+            // todo mdstatus 7 oldugunda hash, hashparam deger gelmiyor, check3dhash calismiyor
             throw new HashMismatchException();
         }
-
-        $requestData = $this->requestDataMapper->create3DPaymentRequestData($this->account, $order, $txType, $request->all());
-
-        $event = new RequestDataPreparedEvent(
-            $requestData,
-            $this->account->getBank(),
-            $txType,
-            \get_class($this),
-            $order,
-            PosInterface::MODEL_3D_SECURE
-        );
-        /** @var RequestDataPreparedEvent $event */
-        $event = $this->eventDispatcher->dispatch($event);
-        if ($requestData !== $event->getRequestData()) {
-            $this->logger->debug('Request data is changed via listeners', [
-                'txType'      => $event->getTxType(),
-                'bank'        => $event->getBank(),
-                'initialData' => $requestData,
-                'updatedData' => $event->getRequestData(),
-            ]);
-            $requestData = $event->getRequestData();
+        
+        if (in_array($request->get('mdstatus'), [1, 2, 3, 4])) {
+            $this->logger->log(LogLevel::DEBUG, 'finishing payment', ['md_status' => $request->get('mdstatus')]);
+            $contents     = $this->create3DPaymentXML($request->all());
+            $bankResponse = $this->send($contents);
+        } else {
+            $this->logger->log(LogLevel::ERROR, '3d auth fail', ['md_status' => $request->get('mdstatus')]);
         }
 
-        $contents     = $this->serializer->encode($requestData, $txType);
-        $bankResponse = $this->send(
-            $contents,
-            $txType,
-            PosInterface::MODEL_3D_SECURE,
-            $this->getApiURL()
-        );
 
-        $this->response = $this->responseDataMapper->map3DPaymentData($request->all(), $bankResponse, $txType, $order);
-        $this->logger->debug('finished 3D payment', ['mapped_response' => $this->response]);
+        $this->response = $this->responseDataMapper->map3DPaymentData($request->all(), $bankResponse);
+        $this->logger->log(LogLevel::DEBUG, 'finished 3D payment', ['mapped_response' => $this->response]);
 
         return $this;
     }
@@ -121,54 +76,198 @@ class GarantiPos extends AbstractGateway
     /**
      * @inheritDoc
      */
-    public function make3DPayPayment(Request $request, array $order, string $txType): PosInterface
+    public function make3DPayPayment(Request $request)
     {
-        $this->response = $this->responseDataMapper->map3DPayResponseData($request->request->all(), $txType, $order);
+        $this->response = $this->responseDataMapper->map3DPayResponseData($request->request->all());
 
         return $this;
     }
 
     /**
      * @inheritDoc
-     *
-     * @return array{gateway: string, method: 'POST'|'GET', inputs: array<string, string>}
      */
-    public function get3DFormData(array $order, string $paymentModel, string $txType, CreditCardInterface $creditCard = null, bool $createWithoutCard = true): array
+    public function send($contents, ?string $url = null)
     {
-        $this->check3DFormInputs($paymentModel, $txType, $creditCard, $createWithoutCard);
-
-        $this->logger->debug('preparing 3D form data');
-
-        return $this->requestDataMapper->create3DFormData(
-            $this->account,
-            $order,
-            $paymentModel,
-            $txType,
-            $this->get3DGatewayURL($paymentModel),
-            $creditCard
-        );
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function make3DHostPayment(Request $request, array $order, string $txType): PosInterface
-    {
-        throw new UnsupportedPaymentModelException();
-    }
-
-    /**
-     * @inheritDoc
-     *
-     * @return array<string, mixed>
-     */
-    protected function send($contents, string $txType, string $paymentModel, string $url): array
-    {
-        $this->logger->debug('sending request', ['url' => $url]);
-
+        $url = $this->getApiURL();
+        $this->logger->log(LogLevel::DEBUG, 'sending request', ['url' => $url]);
         $response = $this->client->post($url, ['body' => $contents]);
-        $this->logger->debug('request completed', ['status_code' => $response->getStatusCode()]);
+        $this->logger->log(LogLevel::DEBUG, 'request completed', ['status_code' => $response->getStatusCode()]);
+        $this->data = $this->XMLStringToArray($response->getBody()->getContents());
 
-        return $this->data = $this->serializer->decode($response->getBody()->getContents(), $txType);
+        return $this->data;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function get3DFormData(): array
+    {
+        if ($this->order === null) {
+            $this->logger->log(LogLevel::ERROR, 'tried to get 3D form data without setting order');
+
+            throw new LogicException('Kredi kartı veya sipariş bilgileri eksik!');
+        }
+        
+        $this->logger->log(LogLevel::DEBUG, 'preparing 3D form data');
+
+        return $this->requestDataMapper->create3DFormData($this->account, $this->order, $this->type, $this->get3DGatewayURL(), $this->card);
+    }
+
+    /**
+     * TODO implement
+     * @inheritDoc
+     */
+    public function make3DHostPayment(Request $request)
+    {
+        throw new NotImplementedException();
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function createRegularPaymentXML()
+    {
+        $requestData = $this->requestDataMapper->createNonSecurePaymentRequestData($this->account, $this->order, $this->type, $this->card);
+
+        return $this->createXML($requestData);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function createRegularPostXML()
+    {
+        $requestData = $this->requestDataMapper->createNonSecurePostAuthPaymentRequestData($this->account, $this->order);
+
+        return $this->createXML($requestData);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function create3DPaymentXML($responseData)
+    {
+        $requestData = $this->requestDataMapper->create3DPaymentRequestData($this->account, $this->order, $this->type, $responseData);
+
+        return $this->createXML($requestData);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function createCancelXML()
+    {
+        $requestData = $this->requestDataMapper->createCancelRequestData($this->getAccount(), $this->getOrder());
+
+        return $this->createXML($requestData);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function createRefundXML()
+    {
+        $requestData = $this->requestDataMapper->createRefundRequestData($this->account, $this->order);
+
+        return $this->createXML($requestData);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function createHistoryXML($customQueryData)
+    {
+        $requestData = $this->requestDataMapper->createHistoryRequestData($this->account, $this->order, $customQueryData);
+
+        return $this->createXML($requestData);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function createStatusXML()
+    {
+        $requestData = $this->requestDataMapper->createStatusRequestData($this->account, $this->order);
+
+        return $this->createXML($requestData);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    protected function preparePaymentOrder(array $order)
+    {
+        return (object) array_merge($order, [
+            'installment' => $order['installment'] ?? 0,
+            'currency'    => $order['currency'] ?? 'TRY',
+            'amount'      => $order['amount'],
+            'ip'          => $order['ip'] ?? '',
+            'email'       => $order['email'] ?? '',
+        ]);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    protected function preparePostPaymentOrder(array $order)
+    {
+        return (object) [
+            'id'          => $order['id'],
+            'ref_ret_num' => $order['ref_ret_num'],
+            'currency'    => $order['currency'] ?? 'TRY',
+            'amount'      => $order['amount'],
+            'ip'          => $order['ip'] ?? '',
+            'email'       => $order['email'] ?? '',
+        ];
+    }
+
+    /**
+     * @inheritDoc
+     */
+    protected function prepareStatusOrder(array $order)
+    {
+        return (object) [
+            'id'          => $order['id'],
+            'amount'      => 1, //sabit deger gonderilmesi gerekiyor
+            'currency'    => $order['currency'] ?? 'TRY',
+            'ip'          => $order['ip'] ?? '',
+            'email'       => $order['email'] ?? '',
+            'installment' => 0,
+        ];
+    }
+
+    /**
+     * @inheritDoc
+     */
+    protected function prepareHistoryOrder(array $order)
+    {
+        return $this->prepareStatusOrder($order);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    protected function prepareCancelOrder(array $order)
+    {
+        return (object) [
+            'id'          => $order['id'],
+            'amount'      => 1, //sabit deger gonderilmesi gerekiyor
+            'currency'    => $order['currency'] ?? 'TRY',
+            'ref_ret_num' => $order['ref_ret_num'],
+            'ip'          => $order['ip'] ?? '',
+            'email'       => $order['email'] ?? '',
+            'installment' => 0,
+        ];
+    }
+
+    /**
+     * @inheritDoc
+     */
+    protected function prepareRefundOrder(array $order)
+    {
+        $refundOrder = $this->prepareCancelOrder($order);
+        $refundOrder->amount = $order['amount'];
+
+        return $refundOrder;
     }
 }

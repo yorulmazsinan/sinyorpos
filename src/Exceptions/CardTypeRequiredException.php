@@ -1,30 +1,27 @@
 <?php
 
-/**
- * @license MIT
- */
-
 namespace SinyorPos\Exceptions;
 
 use DomainException;
 use Throwable;
 
 /**
- * thrown if card type is not provided
+ * Kart tipi sağlanmazsa çalışacak metod.
  */
 class CardTypeRequiredException extends DomainException
 {
-    private string $gatewayName;
+	/** @var string */
+    private $gatewayName;
 
     /**
-     * BankNotFoundException constructor.
+     * BankNotFoundException yapıcı metodu:
      *
-     * @param string         $gatewayName
-     * @param string         $message
-     * @param int            $code
-     * @param Throwable|null $previous
+     * @param  string           $gatewayName
+     * @param  string           $message
+     * @param  int              $code
+     * @param  Throwable|null   $previous
      */
-    public function __construct(string $gatewayName, string $message = 'Card type is required for this gateway!', int $code = 73, Throwable $previous = null)
+    public function __construct(string $gatewayName, string $message = 'Bu ağ geçidi için kart tipi gereklidir!', int $code = 73, Throwable $previous = null)
     {
         parent::__construct($message, $code, $previous);
         $this->gatewayName = $gatewayName;
