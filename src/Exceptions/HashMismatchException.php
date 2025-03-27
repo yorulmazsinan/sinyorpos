@@ -1,8 +1,5 @@
 <?php
 
-/**
- * @license MIT
- */
 
 namespace SinyorPos\Exceptions;
 
@@ -17,7 +14,7 @@ class HashMismatchException extends LogicException
     /**
      * @inheritDoc
      */
-    public function __construct(string $message = 'Hash Mismatch!', int $code = 575, ?Throwable $previous = null)
+    public function __construct($message = 'Hash Mismatch!', int $code = 575, ?Throwable $previous = null)
     {
         parent::__construct($message, $code, $previous);
     }

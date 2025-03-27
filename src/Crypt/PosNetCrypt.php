@@ -1,105 +1,100 @@
 <?php
 
-/**
- * @license MIT
- */
-
 namespace SinyorPos\Crypt;
 
 use SinyorPos\Entity\Account\AbstractPosAccount;
 use SinyorPos\Entity\Account\PosNetAccount;
+use SinyorPos\Entity\Card\AbstractCreditCard;
 use SinyorPos\Exceptions\NotImplementedException;
+use SinyorPos\Gateways\AbstractGateway;
+use Psr\Log\LogLevel;
 
 class PosNetCrypt extends AbstractCrypt
 {
     /** @var string */
     protected const HASH_ALGORITHM = 'sha256';
-
+    
     /** @var string */
     protected const HASH_SEPARATOR = ';';
 
     /**
+     * @param PosNetAccount $account
+     *
      * {@inheritDoc}
      */
-    public function create3DHash(AbstractPosAccount $posAccount, array $formInputs, ?string $txType = null): string
+    public function create3DHash(AbstractPosAccount $account, array $requestData, ?string $txType = null): string
     {
-        throw new NotImplementedException();
+        if ($account->getModel() === AbstractGateway::MODEL_3D_SECURE || $account->getModel() === AbstractGateway::MODEL_3D_PAY) {
+            $secondHashData = [
+                $requestData['id'],
+                $requestData['amount'],
+                $requestData['currency'],
+                $account->getClientId(),
+                $this->createSecurityData($account),
+            ];
+            $hashStr        = implode(static::HASH_SEPARATOR, $secondHashData);
+
+            return $this->hashString($hashStr);
+        }
+
+        return '';
     }
 
     /**
-     * @param PosNetAccount $posAccount
+     * @param PosNetAccount $account
      *
      * {@inheritdoc}
      */
-    public function check3DHash(AbstractPosAccount $posAccount, array $data): bool
+    public function check3DHash(AbstractPosAccount $account, array $data): bool
     {
-        if (null === $posAccount->getStoreKey()) {
-            throw new \LogicException('Account storeKey eksik!');
+        $hashStr = '';
+
+        if ($account->getModel() === AbstractGateway::MODEL_3D_SECURE || $account->getModel() === AbstractGateway::MODEL_3D_PAY) {
+            $secondHashData = [
+                $data['mdStatus'],
+                $data['xid'],
+                $data['amount'],
+                $data['currency'],
+                $account->getClientId(),
+                $this->createSecurityData($account),
+            ];
+            $hashStr = implode(static::HASH_SEPARATOR, $secondHashData);
         }
 
-        $secondHashData = [
-            $data['mdStatus'],
-            $data['xid'],
-            $data['amount'],
-            $data['currency'],
-            $posAccount->getClientId(),
-            $this->createSecurityData($posAccount->getStoreKey(), $posAccount->getTerminalId()),
-        ];
-        $hashStr        = implode(static::HASH_SEPARATOR, $secondHashData);
-
         if ($this->hashString($hashStr) !== $data['mac']) {
-            $this->logger->error('hash check failed', [
+            $this->logger->log(LogLevel::ERROR, 'hash check failed', [
                 'order_id' => $data['xid'],
             ]);
 
             return false;
         }
 
-        $this->logger->debug('hash check is successful', [
+        $this->logger->log(LogLevel::DEBUG, 'hash check is successful', [
             'order_id' => $data['xid'],
         ]);
 
         return true;
     }
 
-    /**
-     * @param array{amount: int, currency: string, id: string} $order
-     *
-     * @inheritdoc
-     */
-    public function createHash(AbstractPosAccount $posAccount, array $requestData, array $order = []): string
+    public function createHash(AbstractPosAccount $account, array $requestData, ?string $txType = null, ?AbstractCreditCard $card = null): string
     {
-        if (null === $posAccount->getStoreKey()) {
-            throw new \LogicException('Account storeKey eksik!');
-        }
-
-        $hashData = [
-            $order['id'],
-            $order['amount'],
-            $order['currency'],
-            $requestData['mid'],
-            $this->createSecurityData($posAccount->getStoreKey(), $requestData['tid']),
-        ];
-        $hashStr  = \implode(static::HASH_SEPARATOR, $hashData);
-
-        return $this->hashString($hashStr);
+        throw new NotImplementedException();
     }
 
     /**
      * Make Security Data
      *
-     * @param string $storeKey
-     * @param string $terminalId
+     * @param PosNetAccount $account
      *
      * @return string
      */
-    private function createSecurityData(string $storeKey, string $terminalId): string
+    public function createSecurityData(AbstractPosAccount $account): string
     {
         $hashData = [
-            $storeKey,
-            $terminalId,
+            $account->getStoreKey(),
+            $account->getTerminalId(),
         ];
-        $hashStr  = \implode(static::HASH_SEPARATOR, $hashData);
+        $hashStr  = implode(static::HASH_SEPARATOR, $hashData);
 
         return $this->hashString($hashStr);
     }

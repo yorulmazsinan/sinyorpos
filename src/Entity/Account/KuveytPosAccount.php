@@ -1,12 +1,6 @@
 <?php
 
-/**
- * @license MIT
- */
-
 namespace SinyorPos\Entity\Account;
-
-use SinyorPos\PosInterface;
 
 /**
  * KuveytPosAccount
@@ -16,17 +10,19 @@ class KuveytPosAccount extends AbstractPosAccount
     /**
      * POS dokumanda response'da SubMerchantId yer aliyor
      * ancak kullanimi hakkinda hic bir bilgi yok.
+     * @var string|null
      */
-    protected ?string $subMerchantId;
+    protected $subMerchantId;
 
     /**
-     * @param string               $bank
-     * @param string               $merchantId Mağaza Numarası
-     * @param string               $username   POS panelinizden kullanıcı işlemleri sayfasında APİ rolünde kullanıcı oluşturulmalıdır
-     * @param string               $customerId CustomerNumber, Müşteri No
-     * @param string               $storeKey   Oluşturulan APİ kullanıcısının şifre bilgisidir.
-     * @param PosInterface::LANG_* $lang
-     * @param string|null          $subMerchantId
+     * @param string      $bank
+     * @param string      $merchantId    Mağaza Numarası
+     * @param string      $username      POS panelinizden kullanıcı işlemleri sayfasında APİ rolünde kullanıcı oluşturulmalıdır
+     * @param string      $customerId    CustomerNumber, Müşteri No
+     * @param string      $storeKey      Oluşturulan APİ kullanıcısının şifre bilgisidir.
+     * @param string      $model
+     * @param string      $lang
+     * @param string|null $subMerchantId
      */
     public function __construct(
         string $bank,
@@ -34,10 +30,11 @@ class KuveytPosAccount extends AbstractPosAccount
         string $username,
         string $customerId,
         string $storeKey,
+        string $model,
         string $lang,
         ?string $subMerchantId = null
     ) {
-        parent::__construct($bank, $merchantId, $username, $customerId, $lang, $storeKey);
+        parent::__construct($bank, $model, $merchantId, $username, $customerId, $lang, $storeKey);
         $this->subMerchantId = $subMerchantId;
     }
 

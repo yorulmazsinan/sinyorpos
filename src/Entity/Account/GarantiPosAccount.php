@@ -1,9 +1,7 @@
 <?php
-
 /**
  * @license MIT
  */
-
 namespace SinyorPos\Entity\Account;
 
 /**
@@ -11,14 +9,18 @@ namespace SinyorPos\Entity\Account;
  */
 class GarantiPosAccount extends AbstractPosAccount
 {
-    private string $terminalId;
+    /** @var string */
+    private $terminalId;
 
-    private ?string $refundUsername;
+    /** @var string */
+    private $refundUsername;
 
-    private ?string $refundPassword;
+    /** @var string */
+    private $refundPassword;
 
     public function __construct(
         string $bank,
+        string $model,
         string $merchantId,
         string $username,
         string $password,
@@ -28,24 +30,25 @@ class GarantiPosAccount extends AbstractPosAccount
         ?string $refundUsername = null,
         ?string $refundPassword = null
     ) {
-        parent::__construct($bank, $merchantId, $username, $password, $lang, $storeKey);
+        parent::__construct($bank, $model, $merchantId, $username, $password, $lang, $storeKey);
+        $this->model = $model;
         $this->terminalId = $terminalId;
         $this->refundUsername = $refundUsername;
         $this->refundPassword = $refundPassword;
     }
 
     /**
-     * @return string|null
+     * @return string
      */
-    public function getRefundPassword(): ?string
+    public function getRefundPassword(): string
     {
         return $this->refundPassword;
     }
 
     /**
-     * @return string|null
+     * @return string
      */
-    public function getRefundUsername(): ?string
+    public function getRefundUsername(): string
     {
         return $this->refundUsername;
     }

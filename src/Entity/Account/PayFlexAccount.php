@@ -1,9 +1,5 @@
 <?php
 
-/**
- * @license MIT
- */
-
 namespace SinyorPos\Entity\Account;
 
 class PayFlexAccount extends AbstractPosAccount
@@ -18,19 +14,20 @@ class PayFlexAccount extends AbstractPosAccount
     public const MERCHANT_TYPE_SUB_DEALER = 2;
 
     /** @var int[] */
-    private static array $merchantTypes = [
+    private static $merchantTypes = [
         self::MERCHANT_TYPE_STANDARD,
         self::MERCHANT_TYPE_MAIN_DEALER,
         self::MERCHANT_TYPE_SUB_DEALER,
     ];
 
-    private string $terminalId;
+    /** @var string */
+    private $terminalId;
 
     /**
      * Banka tarafından Üye işyerine iletilmektedir
      * @var self::MERCHANT_TYPE_*
      */
-    private int $merchantType;
+    private $merchantType;
 
     /**
      * Ör:00000000000471
@@ -40,11 +37,13 @@ class PayFlexAccount extends AbstractPosAccount
      * MerchantType: 0 ise, gönderilmemeli
      * MerchantType: 1 ise, Ana bayi kendi adına işlem geçiyor ise gönderilmemeli,
      * Altbayisi adına işlem geçiyor ise zorunludur.
+     * @var string|null
      */
-    private ?string $subMerchantId;
+    private $subMerchantId;
 
     /**
      * @param string                $bank
+     * @param string                $model
      * @param string                $merchantId Isyeri No
      * @param string                $password   Isyeri Sifre
      * @param string                $terminalId Terminal No
@@ -53,13 +52,16 @@ class PayFlexAccount extends AbstractPosAccount
      */
     public function __construct(
         string $bank,
+        string $model,
         string $merchantId,
         string $password,
         string $terminalId,
         int    $merchantType = self::MERCHANT_TYPE_STANDARD,
         string $subMerchantId = null
-    ) {
-        parent::__construct($bank, $merchantId, '', $password, 'tr');
+    )
+    {
+        parent::__construct($bank, $model, $merchantId, '', $password, 'tr');
+        $this->model         = $model;
         $this->terminalId    = $terminalId;
         $this->merchantType  = $merchantType;
         $this->subMerchantId = $subMerchantId;
