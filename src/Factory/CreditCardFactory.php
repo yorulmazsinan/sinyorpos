@@ -1,13 +1,18 @@
 <?php
+
+/**
+ * @license MIT
+ */
+
 namespace SinyorPos\Factory;
 
 use DateTimeImmutable;
 use DomainException;
-use SinyorPos\Entity\Card\AbstractCreditCard;
+use Exception;
 use SinyorPos\Entity\Card\CreditCard;
+use SinyorPos\Entity\Card\CreditCardInterface;
 use SinyorPos\Exceptions\CardTypeNotSupportedException;
 use SinyorPos\Exceptions\CardTypeRequiredException;
-use SinyorPos\Gateways\AbstractGateway;
 use SinyorPos\PosInterface;
 
 /**
@@ -15,49 +20,103 @@ use SinyorPos\PosInterface;
  */
 class CreditCardFactory
 {
-	/**
-	 * AbstractCreditCard constructor.
-	 *
-	 * @param PosInterface|AbstractGateway $pos
-	 * @param string       $number         credit card number with or without spaces
-	 * @param string       $expireYear     accepts year in 1, 2 and 4 digit format. accepted year formats '1' (2001), '02'
-	 *                                     (2002), '20' (2020), '2024' (2024)
-	 * @param string       $expireMonth    single digit or double digit month values are accepted
-	 * @param string       $cvv
-	 * @param string|null  $cardHolderName
-	 * @param string|null  $cardType       examples values: visa, master. bankaya gore zorunlu
-	 *
-	 * @return AbstractCreditCard
-	 */
-	public static function create(
-		PosInterface $pos,
-		string $number,
-		string $expireYear,
-		string $expireMonth,
-		string $cvv,
-		?string $cardHolderName = null,
-		?string $cardType = null
-	): AbstractCreditCard {
+    /**
+     * @phpstan-param CreditCardInterface::CARD_TYPE_* $cardType
+     *
+     * @param PosInterface $pos
+     * @param string       $number      credit card number with or without spaces
+     * @param string       $expireYear  accepts year in 1, 2 and 4 digit format. accepted year formats '1' (2001), '02' (2002), '20' (2020), '2024' (2024)
+     * @param string       $expireMonth single digit or double digit month values are accepted
+     * @param string       $cvv
+     * @param string|null  $cardHolderName
+     * @param string|null  $cardType    bankaya gore zorunlu
+     *
+     * @return CreditCardInterface
+     *
+     * @throws CardTypeRequiredException
+     * @throws CardTypeNotSupportedException
+     * @throws Exception
+     */
+    public static function createForGateway(
+        PosInterface $pos,
+        string       $number,
+        string       $expireYear,
+        string       $expireMonth,
+        string       $cvv,
+        ?string      $cardHolderName = null,
+        ?string      $cardType = null
+    ): CreditCardInterface {
+        $card = self::create($number, $expireYear, $expireMonth, $cvv, $cardHolderName, $cardType);
 
-		$number = preg_replace('/\s+/', '', $number);
-		$expireYear =  str_pad($expireYear, 2, '0', STR_PAD_LEFT);
-		$expireYear =  str_pad($expireYear, 4, '20', STR_PAD_LEFT);
-		$expireMonth = str_pad($expireMonth, 2, '0', STR_PAD_LEFT);
-		$expDate  = DateTimeImmutable::createFromFormat('Ymd', $expireYear.$expireMonth.'01');
+        $supportedCardTypes = \array_keys($pos->getCardTypeMapping());
+        if ([] !== $supportedCardTypes) {
+            if (null === $cardType) {
+                throw new CardTypeRequiredException(\get_class($pos));
+            }
 
-		if (! $expDate instanceof DateTimeImmutable) {
-			throw new DomainException('INVALID DATE FORMAT');
-		}
+            if (!\in_array($cardType, $supportedCardTypes, true)) {
+                throw new CardTypeNotSupportedException($cardType);
+            }
+        }
 
-		$supportedCardTypes = array_keys($pos->getCardTypeMapping());
-		if ($supportedCardTypes !== [] && empty($cardType)) {
-			throw new CardTypeRequiredException($pos::NAME);
-		}
+        return $card;
+    }
 
-		if ($supportedCardTypes !== [] && !in_array($cardType, $supportedCardTypes)) {
-			throw new CardTypeNotSupportedException($cardType);
-		}
 
-		return new CreditCard($number, $expDate, $cvv, $cardHolderName, $cardType);
-	}
+    /**
+     * @phpstan-param CreditCardInterface::CARD_TYPE_* $cardType
+     *
+     * @param string      $number      credit card number with or without spaces
+     * @param string      $expireYear  accepts year in 1, 2 and 4 digit format. accepted year formats '1' (2001), '02' (2002), '20' (2020), '2024' (2024)
+     * @param string      $expireMonth single digit or double digit month values are accepted
+     * @param string      $cvv
+     * @param string|null $cardHolderName
+     * @param string|null $cardType    bankaya gore zorunlu
+     *
+     * @return CreditCardInterface
+     *
+     * @throws CardTypeRequiredException
+     * @throws CardTypeNotSupportedException
+     * @throws Exception
+     */
+    public static function create(
+        string  $number,
+        string  $expireYear,
+        string  $expireMonth,
+        string  $cvv,
+        ?string $cardHolderName = null,
+        ?string $cardType = null
+    ): CreditCardInterface {
+
+        $number = \preg_replace('/\s+/', '', $number);
+        if (null === $number) {
+            throw new DomainException(\sprintf('Bad credit card number %s', $number));
+        }
+
+        $expDate = self::createDate($expireYear, $expireMonth);
+
+        return new CreditCard($number, $expDate, $cvv, $cardHolderName, $cardType);
+    }
+
+    /**
+     * @param string $expireYear  accepts year in 1, 2 and 4 digit format. accepted year formats '1' (2001), '02', (2002), '20' (2020), '2024' (2024)
+     *
+     * @param string $expireMonth single digit or double digit month values are accepted
+     *
+     * @return DateTimeImmutable
+     */
+    private static function createDate(string $expireYear, string $expireMonth): DateTimeImmutable
+    {
+        $expireYear = \str_pad($expireYear, 2, '0', STR_PAD_LEFT);
+        $expireYear = \str_pad($expireYear, 4, '20', STR_PAD_LEFT);
+
+        $expireMonth = \str_pad($expireMonth, 2, '0', STR_PAD_LEFT);
+        $expDate     = DateTimeImmutable::createFromFormat('Ymd', $expireYear.$expireMonth.'01');
+
+        if (!$expDate instanceof DateTimeImmutable) {
+            throw new DomainException('INVALID DATE FORMAT');
+        }
+
+        return $expDate;
+    }
 }

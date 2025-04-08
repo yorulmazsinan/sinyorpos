@@ -1,11 +1,14 @@
 <?php
 
+/**
+ * @license MIT
+ */
+
 namespace SinyorPos\Entity\Card;
 
 /**
- * CreditCard Sınıfı (Kredi Kartı bilgilerini tutar.)
+ * Class CreditCard
  */
 class CreditCard extends AbstractCreditCard
 {
-	//
 }

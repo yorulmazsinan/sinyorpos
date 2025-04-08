@@ -10,6 +10,7 @@ use SinyorPos\Entity\Card\AbstractCreditCard;
 use SinyorPos\Entity\Account\AbstractPosAccount;
 use App\Models\Order;
 use App\Models\User;
+use App\Models\SiteSetting;
 
 if (!function_exists('checkCardType')) {
 	function checkCardType($number)
@@ -35,6 +36,33 @@ if (!function_exists('checkCardType')) {
 		return $type;
 	}
 }
+if (!function_exists('doPayment')) {
+	function doPayment(PosInterface $pos, string $paymentModel, string $transaction, array $order, ?CreditCardInterface $card)
+	{
+		if (!$pos::isSupportedTransaction($transaction, $paymentModel)) {
+			throw new \LogicException(
+				sprintf('"%s %s" işlemi %s tarafından desteklenmiyor', $transaction, $paymentModel, get_class($pos))
+			);
+		}
+		if (get_class($pos) === \SinyorPos\Gateways\PayFlexV4Pos::class
+			&& in_array($transaction, [PosInterface::TX_TYPE_PAY_AUTH, PosInterface::TX_TYPE_PAY_PRE_AUTH], true)
+			&& PosInterface::MODEL_3D_SECURE === $paymentModel
+		) {
+			/**
+			 * diger banklaradan farkli olarak 3d islemler icin de PayFlex bu asamada kredi kart bilgileri istiyor
+			 */
+			$pos->payment($paymentModel, $order, $transaction, $card);
+	
+		} elseif ($paymentModel === PosInterface::MODEL_NON_SECURE
+			&& in_array($transaction, [PosInterface::TX_TYPE_PAY_AUTH, PosInterface::TX_TYPE_PAY_PRE_AUTH], true)
+		) {
+			// bu asamada $card regular/non secure odemede lazim.
+			$pos->payment($paymentModel, $order, $transaction, $card);
+		} else {
+			$pos->payment($paymentModel, $order, $transaction);
+		}
+	}
+}
 if (!function_exists('getGateway')) {
 	function getGateway(AbstractPosAccount $account): PosInterface
 	{
@@ -42,7 +70,14 @@ if (!function_exists('getGateway')) {
 			$handler = new \Monolog\Handler\StreamHandler(__DIR__.'/../var/log/pos.log', \Psr\Log\LogLevel::DEBUG);
 			$logger = new \Monolog\Logger('pos', [$handler]);
 
-			$pos = PosFactory::createPosGateway($account, null, null, $logger);
+			// Konfigürasyon dosyasını yükle
+			$config = require config_path('pos-settings.php');
+            
+            // Symfony Event Dispatcher kullan
+            $eventDispatcher = new \Symfony\Component\EventDispatcher\EventDispatcher();
+
+			// Parametre sırası düzeltildi
+			$pos = PosFactory::createPosGateway($account, $config, $eventDispatcher, null, $logger);
 			$pos->setTestMode(false);
 
 			return $pos;
@@ -55,7 +90,7 @@ if (!function_exists('createCard')) {
 	function createCard(PosInterface $pos, array $card): AbstractCreditCard
 	{
 		try {
-			return CreditCardFactory::create(
+			return CreditCardFactory::createForGateway(
 				$pos,
 				$card['number'],
 				$card['year'],
@@ -64,7 +99,13 @@ if (!function_exists('createCard')) {
 				$card['name'],
 				$card['type'] ?? null
 			);
-		} catch (Exception $e) {
+		} catch (\SinyorPos\Exceptions\CardTypeRequiredException $e) {
+			// bu gateway için kart tipi zorunlu
+			dd($e);
+		} catch (\SinyorPos\Exceptions\CardTypeNotSupportedException $e) {
+			// sağlanan kart tipi bu gateway tarafından desteklenmiyor
+			dd($e);
+		} catch (\Exception $e) {
 			dd($e);
 		}
 	}
@@ -80,9 +121,9 @@ if (!function_exists('createPosAccount')) {
 				$config['banks'][$bank]['accounts'][$status]['client_id'],
 				$config['banks'][$bank]['accounts'][$status]['username'],
 				$config['banks'][$bank]['accounts'][$status]['password'],
-				AbstractGateway::MODEL_3D_SECURE,
+				PosInterface::MODEL_3D_SECURE,
 				$config['banks'][$bank]['accounts'][$status]['store_key'],
-				AbstractGateway::LANG_TR
+				PosInterface::LANG_TR
 			);
 		} elseif ($bank == 'isbank') {
 			$account = AccountFactory::createEstPosAccount(
@@ -90,9 +131,9 @@ if (!function_exists('createPosAccount')) {
 				$config['banks'][$bank]['accounts'][$status]['client_id'],
 				$config['banks'][$bank]['accounts'][$status]['username'],
 				$config['banks'][$bank]['accounts'][$status]['password'],
-				AbstractGateway::MODEL_3D_SECURE,
+				PosInterface::MODEL_3D_SECURE,
 				$config['banks'][$bank]['accounts'][$status]['store_key'],
-				AbstractGateway::LANG_TR
+				PosInterface::LANG_TR
 			);
 		} elseif ($bank == 'qnbfinansbank-payfor') {
 			$account = AccountFactory::createPayForAccount(
@@ -100,7 +141,7 @@ if (!function_exists('createPosAccount')) {
 				$config['banks'][$bank]['accounts'][$status]['client_id'],
 				$config['banks'][$bank]['accounts'][$status]['username'],
 				$config['banks'][$bank]['accounts'][$status]['password'],
-				AbstractGateway::MODEL_3D_SECURE,
+				PosInterface::MODEL_3D_SECURE,
 				$config['banks'][$bank]['accounts'][$status]['store_key']
 			);
 		} elseif ($bank == 'garanti') {
@@ -110,7 +151,7 @@ if (!function_exists('createPosAccount')) {
 				$config['banks'][$bank]['accounts'][$status]['username'],
 				$config['banks'][$bank]['accounts'][$status]['password'],
 				$config['banks'][$bank]['accounts'][$status]['terminal_number'],
-				AbstractGateway::MODEL_3D_SECURE,
+				PosInterface::MODEL_3D_SECURE,
 				$config['banks'][$bank]['accounts'][$status]['store_key']
 			);
 		} elseif ($bank == 'yapikredi') {
@@ -121,7 +162,7 @@ if (!function_exists('createPosAccount')) {
 				$config['banks'][$bank]['accounts'][$status]['password'],
 				$config['banks'][$bank]['accounts'][$status]['terminal_number'],
 				$config['banks'][$bank]['accounts'][$status]['posnet_id'],
-				AbstractGateway::MODEL_3D_SECURE,
+				PosInterface::MODEL_3D_SECURE,
 				$config['banks'][$bank]['accounts'][$status]['enc_key']
 			);
 		}
@@ -196,7 +237,6 @@ if (!function_exists('receivePayment')) {
 		}
 
 		$pos = getGateway(createPosAccount($order->payment_bank, 'production')); // PosGateway nesnesini alıyoruz.
-
 		if ($userInformations == true) {
 			$userInformations = json_decode($order->buying_informations, true)['user']; // Kullanıcı bilgilerini alıyoruz.
 		} else {
@@ -204,15 +244,19 @@ if (!function_exists('receivePayment')) {
 		}
 		$orderInformations = json_decode($order->buying_informations, true)['order']; // Sipariş bilgilerini alıyoruz.
 		$cardInformations = json_decode($order->buying_informations, true)['card']; // Kart bilgilerini alıyoruz.
-
 		$card = createCard($pos, $cardInformations); // Kart bilgilerini oluşturuyoruz.
+		$paymentModel = $pos->getAccount()->getModel();
+		$txType = PosInterface::TX_TYPE_PAY_AUTH;
 
-		$pos->prepare($orderInformations, AbstractGateway::TX_PAY); // Ödeme için hazırlık yapıyoruz.
 
-		if ($pos->getAccount()->getModel() === AbstractGateway::MODEL_NON_SECURE && AbstractGateway::TX_POST_PAY !== AbstractGateway::TX_PAY) {
-			$pos->payment($card);
-		} else {
-			$pos->payment();
+		try {
+			doPayment($pos, $paymentModel, $txType, $orderInformations, $card);
+		} catch (Exception $e) {
+			\Illuminate\Support\Facades\Log::error('receivePayment: doPayment sırasında hata', [
+				'order_id' => $orderId,
+				'error' => $e->getMessage()
+			]);
+			throw $e;
 		}
 
 		$response = $pos->getResponse(); // Ödeme işlemi sonucunu alıyoruz.
