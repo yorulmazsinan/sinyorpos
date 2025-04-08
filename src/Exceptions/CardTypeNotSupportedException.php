@@ -1,27 +1,30 @@
 <?php
 
+/**
+ * @license MIT
+ */
+
 namespace SinyorPos\Exceptions;
 
 use DomainException;
 use Throwable;
 
 /**
- * Kart tipi, ağ geçidi tarafından desteklenmediğinde atılan istisna.
+ * thrown when card type is not supported by the gateway
  */
 class CardTypeNotSupportedException extends DomainException
 {
-	/** @var string */
-    private $type;
+    private string $type;
 
     /**
-     * BankNotFoundException yapıcı metodu:
+     * BankNotFoundException constructor.
      *
-     * @param  string           $type
-     * @param  string           $message
-     * @param  int              $code
-     * @param  Throwable|null   $previous
+     * @param string         $type
+     * @param string         $message
+     * @param int            $code
+     * @param Throwable|null $previous
      */
-    public function __construct(string $type, string $message = 'Kart tipi bu ağ geçidi tarafından desteklenmiyor!', int $code = 74, Throwable $previous = null)
+    public function __construct(string $type, string $message = 'Card type is not supported by this gateway!', int $code = 74, Throwable $previous = null)
     {
         parent::__construct($message, $code, $previous);
         $this->type = $type;

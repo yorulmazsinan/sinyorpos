@@ -1,11 +1,13 @@
 <?php
 
+/**
+ * @license MIT
+ */
+
 namespace SinyorPos\Crypt;
 
 use SinyorPos\Entity\Account\AbstractPosAccount;
-use SinyorPos\Entity\Card\AbstractCreditCard;
 use SinyorPos\Exceptions\NotImplementedException;
-use Psr\Log\LogLevel;
 
 class EstV3PosCrypt extends AbstractCrypt
 {
@@ -18,22 +20,28 @@ class EstV3PosCrypt extends AbstractCrypt
     /**
      * {@inheritDoc}
      */
-    public function create3DHash(AbstractPosAccount $account, array $requestData, ?string $txType = null): string
+    public function create3DHash(AbstractPosAccount $posAccount, array $formInputs): string
     {
-        ksort($requestData, SORT_NATURAL | SORT_FLAG_CASE);
-        foreach (array_keys($requestData) as $key) {
-            // this part is needed only to create hash from the bank response
-            if (in_array(strtolower($key), ['hash', 'encoding']))  {
-                unset($requestData[$key]);
+        \ksort($formInputs, SORT_NATURAL | SORT_FLAG_CASE);
+        foreach (\array_keys($formInputs) as $key) {
+            /**
+             * this part is needed only to create hash from the bank response
+             *
+             * nationalidno: Ziraat ödeme dönüşlerinde checkHash arrayi içerisinde yer alabiliyor.
+             *  Hash string içine dahil edildiğinde hataya sebep oluyor,
+             *  Payten tarafından hash içerisinde olmaması gerektiği teyidi alındı.
+             */
+            if (\in_array(\strtolower($key), ['hash', 'encoding' , 'nationalidno'])) {
+                unset($formInputs[$key]);
             }
         }
 
-        $requestData[] = $account->getStoreKey();
+        $formInputs[] = $posAccount->getStoreKey() ?? '';
         // escape | and \ characters
-        $data = str_replace("\\", "\\\\", array_values($requestData));
-        $data = str_replace(self::HASH_SEPARATOR, "\\".self::HASH_SEPARATOR, $data);
+        $data = \str_replace("\\", "\\\\", \array_values($formInputs));
+        $data = \str_replace(self::HASH_SEPARATOR, "\\".self::HASH_SEPARATOR, $data);
 
-        $hashStr = implode(self::HASH_SEPARATOR, $data);
+        $hashStr = \implode(self::HASH_SEPARATOR, $data);
 
         return $this->hashString($hashStr);
     }
@@ -41,26 +49,29 @@ class EstV3PosCrypt extends AbstractCrypt
     /**
      * {@inheritdoc}
      */
-    public function check3DHash(AbstractPosAccount $account, array $data): bool
+    public function check3DHash(AbstractPosAccount $posAccount, array $data): bool
     {
-        $actualHash = $this->create3DHash($account, $data);
+        $actualHash = $this->create3DHash($posAccount, $data);
 
         if ($data['HASH'] === $actualHash) {
-            $this->logger->log(LogLevel::DEBUG, 'hash check is successful');
+            $this->logger->debug('hash check is successful');
 
             return true;
         }
 
-        $this->logger->log(LogLevel::ERROR, 'hash check failed', [
-            'data' => $data,
+        $this->logger->error('hash check failed', [
+            'data'           => $data,
             'generated_hash' => $actualHash,
-            'expected_hash' => $data['HASH']
+            'expected_hash'  => $data['HASH'],
         ]);
 
         return false;
     }
 
-    public function createHash(AbstractPosAccount $account, array $requestData, ?string $txType = null, ?AbstractCreditCard $card = null): string
+    /**
+     * @inheritDoc
+     */
+    public function createHash(AbstractPosAccount $posAccount, array $requestData): string
     {
         throw new NotImplementedException();
     }
