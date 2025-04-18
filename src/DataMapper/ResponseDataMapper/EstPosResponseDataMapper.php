@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */

@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -20,10 +19,10 @@ class EstV3PosCrypt extends AbstractCrypt
     /**
      * {@inheritDoc}
      */
-    public function create3DHash(AbstractPosAccount $posAccount, array $formInputs): string
+    public function create3DHash(AbstractPosAccount $posAccount, array $requestData): string
     {
-        \ksort($formInputs, SORT_NATURAL | SORT_FLAG_CASE);
-        foreach (\array_keys($formInputs) as $key) {
+        \ksort($requestData, SORT_NATURAL | SORT_FLAG_CASE);
+        foreach (\array_keys($requestData) as $key) {
             /**
              * this part is needed only to create hash from the bank response
              *
@@ -31,14 +30,14 @@ class EstV3PosCrypt extends AbstractCrypt
              *  Hash string içine dahil edildiğinde hataya sebep oluyor,
              *  Payten tarafından hash içerisinde olmaması gerektiği teyidi alındı.
              */
-            if (\in_array(\strtolower($key), ['hash', 'encoding' , 'nationalidno'])) {
-                unset($formInputs[$key]);
+            if (\in_array(\strtolower($key), ['hash', 'encoding' , 'nationalidno']))  {
+                unset($requestData[$key]);
             }
         }
 
-        $formInputs[] = $posAccount->getStoreKey() ?? '';
+        $requestData[] = $posAccount->getStoreKey();
         // escape | and \ characters
-        $data = \str_replace("\\", "\\\\", \array_values($formInputs));
+        $data = \str_replace("\\", "\\\\", \array_values($requestData));
         $data = \str_replace(self::HASH_SEPARATOR, "\\".self::HASH_SEPARATOR, $data);
 
         $hashStr = \implode(self::HASH_SEPARATOR, $data);
@@ -69,7 +68,10 @@ class EstV3PosCrypt extends AbstractCrypt
     }
 
     /**
-     * @inheritDoc
+     * @param AbstractPosAccount   $posAccount
+     * @param array<string, mixed> $requestData
+     *
+     * @return string
      */
     public function createHash(AbstractPosAccount $posAccount, array $requestData): string
     {

@@ -1,25 +1,30 @@
 <?php
-
 /**
  * @license MIT
  */
 
 namespace SinyorPos\Serializer;
 
+use SinyorPos\Exceptions\UnsupportedTransactionTypeException;
 use SinyorPos\Gateways\PayFlexCPV4Pos;
+use SinyorPos\PosInterface;
 use Symfony\Component\Serializer\Encoder\XmlEncoder;
 use Symfony\Component\Serializer\Exception\NotEncodableValueException;
 use Symfony\Component\Serializer\Serializer;
 
 class PayFlexCPV4PosSerializer implements SerializerInterface
 {
-    use SerializerUtilTrait;
-
     private Serializer $serializer;
 
     public function __construct()
     {
-        $encoder = new XmlEncoder();
+        $encoder = new XmlEncoder([
+            XmlEncoder::ROOT_NODE_NAME             => 'VposRequest',
+            XmlEncoder::ENCODING                   => 'UTF-8',
+            XmlEncoder::ENCODER_IGNORED_NODE_TYPES => [
+                XML_PI_NODE,
+            ],
+        ]);
 
         $this->serializer = new Serializer([], [$encoder]);
     }
@@ -35,9 +40,26 @@ class PayFlexCPV4PosSerializer implements SerializerInterface
     /**
      * @inheritDoc
      */
-    public function encode(array $data, string $txType): string
+    public function encode(array $data, string $txType)
     {
-        return \http_build_query($data);
+        if (PosInterface::TX_TYPE_HISTORY === $txType || PosInterface::TX_TYPE_ORDER_HISTORY === $txType || PosInterface::TX_TYPE_STATUS === $txType) {
+            throw new UnsupportedTransactionTypeException(
+                \sprintf('Serialization of the transaction %s is not supported', $txType)
+            );
+        }
+
+        $supportedTxTypes = [
+            PosInterface::TX_TYPE_REFUND,
+            PosInterface::TX_TYPE_REFUND_PARTIAL,
+            PosInterface::TX_TYPE_CANCEL,
+            PosInterface::TX_TYPE_CUSTOM_QUERY,
+        ];
+
+        if (\in_array($txType, $supportedTxTypes, true)) {
+            return $this->serializer->encode($data, XmlEncoder::FORMAT);
+        }
+
+        return $data;
     }
 
     /**
@@ -55,5 +77,18 @@ class PayFlexCPV4PosSerializer implements SerializerInterface
         }
 
         throw $notEncodableValueException;
+    }
+
+    /**
+     * must be called after making sure that $str does not contain XML string.
+     * Because for XML strings it will also return true.
+     *
+     * @param string $str
+     *
+     * @return bool
+     */
+    private function isHTML(string $str): bool
+    {
+        return $str !== \strip_tags($str);
     }
 }

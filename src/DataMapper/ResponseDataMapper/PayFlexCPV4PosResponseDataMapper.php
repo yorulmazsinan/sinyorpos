@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -72,7 +71,6 @@ class PayFlexCPV4PosResponseDataMapper extends AbstractResponseDataMapper
 
     /**
      * {@inheritdoc}
-     *
      * @param array{ErrorCode: string}|array{
      *     Rc: string,
      *     AuthCode: string,
@@ -86,11 +84,7 @@ class PayFlexCPV4PosResponseDataMapper extends AbstractResponseDataMapper
      */
     public function map3DHostResponseData(array $raw3DAuthResponseData, string $txType, array $order): array
     {
-        $response = $this->map3DPayResponseData($raw3DAuthResponseData, $txType, $order);
-
-        $response['payment_model'] = PosInterface::MODEL_3D_HOST;
-
-        return $response;
+        return $this->map3DPayResponseData($raw3DAuthResponseData, $txType, $order);
     }
 
     /**
@@ -98,7 +92,7 @@ class PayFlexCPV4PosResponseDataMapper extends AbstractResponseDataMapper
      */
     public function mapRefundResponse(array $rawResponseData): array
     {
-        throw new NotImplementedException();
+        return $this->mapCancelResponse($rawResponseData);
     }
 
     /**
@@ -106,7 +100,18 @@ class PayFlexCPV4PosResponseDataMapper extends AbstractResponseDataMapper
      */
     public function mapCancelResponse(array $rawResponseData): array
     {
-        throw new NotImplementedException();
+        $rawResponseData = $this->emptyStringsToNull($rawResponseData);
+
+        $response = $this->getCommonNonSecureResponse($rawResponseData);
+
+        if (self::TX_APPROVED === $response['status']) {
+            $response['order_id']       = $rawResponseData['TransactionId'];
+            $response['ref_ret_num']    = $rawResponseData['Rrn'];
+            $response['auth_code']      = $rawResponseData['AuthCode'];
+            $response['transaction_id'] = $rawResponseData['TransactionId'];
+        }
+
+        return $response;
     }
 
     /**
@@ -114,7 +119,7 @@ class PayFlexCPV4PosResponseDataMapper extends AbstractResponseDataMapper
      */
     public function mapStatusResponse(array $rawResponseData): array
     {
-        throw new NotImplementedException();
+        return $this->emptyStringsToNull($rawResponseData);
     }
 
     /**
@@ -122,7 +127,24 @@ class PayFlexCPV4PosResponseDataMapper extends AbstractResponseDataMapper
      */
     public function mapPaymentResponse(array $rawPaymentResponseData, string $txType, array $order): array
     {
-        throw new NotImplementedException();
+        $this->logger->debug('mapping payment response', $rawPaymentResponseData);
+        $rawPaymentResponseData = $this->emptyStringsToNull($rawPaymentResponseData);
+        $commonResponse         = $this->getCommonPaymentResponse($rawPaymentResponseData, $txType, PosInterface::MODEL_NON_SECURE);
+
+        if (self::TX_APPROVED === $commonResponse['status']) {
+            $commonResponse['currency']         = $order['currency'];
+            $commonResponse['amount']           = $order['amount'];
+            $commonResponse['transaction_id']   = $rawPaymentResponseData['TransactionId'];
+            $commonResponse['auth_code']        = $rawPaymentResponseData['AuthCode'];
+            $commonResponse['ref_ret_num']      = $rawPaymentResponseData['Rrn'];
+            $commonResponse['order_id']         = $rawPaymentResponseData['OrderId'];
+            $commonResponse['transaction_type'] = $this->mapTxType($rawPaymentResponseData['TransactionType']);
+            $commonResponse['eci']              = $rawPaymentResponseData['ECI'];
+        }
+
+        $this->logger->debug('mapped payment response', $commonResponse);
+
+        return $commonResponse;
     }
 
     /**
@@ -179,6 +201,41 @@ class PayFlexCPV4PosResponseDataMapper extends AbstractResponseDataMapper
         return $response['Rc'] ?? $response['ResultCode'] ?? null;
     }
 
+    /**
+     * @param array<string, string> $responseData
+     *
+     * @return array{order_id: string|null, transaction_id: string|null, auth_code: string|null,
+     *     ref_ret_num: string|null, proc_return_code: string|null,
+     *     status: string, status_detail: string|null, error_code: string|null,
+     *     error_message: string|null, all: array<string, string|null>}
+     */
+    private function getCommonNonSecureResponse(array $responseData): array
+    {
+        $status     = self::TX_DECLINED;
+        $resultCode = $this->getProcReturnCode($responseData);
+
+        $errorCode       = $responseData['ErrorCode'] ?? null;
+        $statusDetail    = null;
+        if (null !== $errorCode) {
+            $resultCode   = $errorCode;
+            $statusDetail = $responseData['ResponseMessage'];
+        } elseif (self::PROCEDURE_SUCCESS_CODE === $resultCode) {
+            $status = self::TX_APPROVED;
+        } else {
+            $statusDetail = $responseData['ResultDetail'];
+        }
+
+        $response = $this->getDefaultPaymentResponse(PosInterface::TX_TYPE_PAY_AUTH, PosInterface::MODEL_3D_SECURE);
+
+        $response['proc_return_code'] = $resultCode;
+        $response['status']           = $status;
+        $response['status_detail']    = $statusDetail;
+        $response['error_code']       = (self::TX_DECLINED === $status) ? $resultCode : null;
+        $response['error_message']    = $statusDetail;
+        $response['all']              = $responseData;
+
+        return $response;
+    }
 
     /**
      * @phpstan-param PosInterface::TX_TYPE_PAY_* $txType

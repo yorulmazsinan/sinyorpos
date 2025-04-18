@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -22,11 +21,11 @@ class InterPosSerializer implements SerializerInterface
     /**
      * @inheritDoc
      *
-     * @return string
+     * @return array<string, mixed>
      */
-    public function encode(array $data, ?string $txType = null): string
+    public function encode(array $data, ?string $txType = null): array
     {
-        return \http_build_query($data);
+        return $data;
     }
 
     /**

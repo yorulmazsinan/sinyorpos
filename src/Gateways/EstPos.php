@@ -1,13 +1,10 @@
 <?php
-
 /**
  * @license MIT
  */
 
 namespace SinyorPos\Gateways;
 
-use SinyorPos\DataMapper\RequestDataMapper\EstPosRequestDataMapper;
-use SinyorPos\DataMapper\RequestDataMapper\RequestDataMapperInterface;
 use SinyorPos\Entity\Account\AbstractPosAccount;
 use SinyorPos\Entity\Account\EstPosAccount;
 use SinyorPos\Entity\Card\CreditCardInterface;
@@ -20,7 +17,7 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * Implementation of Payten Payment Gateway
  *
- * @deprecated use Mews\Pos\Gateways\EstV3Pos.
+ * @deprecated use SinyorPos\Gateways\EstV3Pos.
  * For security reasons this class which uses sha1 hashing algorithm is not recommended to use.
  */
 class EstPos extends AbstractGateway
@@ -30,9 +27,6 @@ class EstPos extends AbstractGateway
 
     /** @var EstPosAccount */
     protected AbstractPosAccount $account;
-
-    /** @var EstPosRequestDataMapper */
-    protected RequestDataMapperInterface $requestDataMapper;
 
     /** @inheritdoc */
     protected static array $supportedTransactions = [
@@ -89,10 +83,7 @@ class EstPos extends AbstractGateway
             throw new HashMismatchException();
         }
 
-        /** @var array{md: string, xid: string, eci: string, cavv: string} $bankPostData */
-        $bankPostData = $request->all();
-
-        $requestData = $this->requestDataMapper->create3DPaymentRequestData($this->account, $order, $txType, $bankPostData);
+        $requestData = $this->requestDataMapper->create3DPaymentRequestData($this->account, $order, $txType, $request->all());
 
         $event = new RequestDataPreparedEvent(
             $requestData,
@@ -163,12 +154,10 @@ class EstPos extends AbstractGateway
 
     /**
      * @inheritDoc
-     *
-     * @return array{gateway: string, method: 'POST'|'GET', inputs: array<string, string>}
      */
-    public function get3DFormData(array $order, string $paymentModel, string $txType, CreditCardInterface $creditCard = null, bool $createWithoutCard = true): array
+    public function get3DFormData(array $order, string $paymentModel, string $txType, CreditCardInterface $creditCard = null): array
     {
-        $this->check3DFormInputs($paymentModel, $txType, $creditCard, $createWithoutCard);
+        $this->check3DFormInputs($paymentModel, $txType, $creditCard);
 
         $this->logger->debug('preparing 3D form data');
 

@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -11,14 +10,14 @@ interface NonPaymentResponseMapperInterface
     /**
      * @param array<string, string> $rawResponseData
      *
-     * @return array<string, mixed>
+     * @return array<string, string>
      */
     public function mapRefundResponse(array $rawResponseData): array;
 
     /**
      * @param array<string, string> $rawResponseData
      *
-     * @return array<string, mixed>
+     * @return array<string, string>
      */
     public function mapCancelResponse(array $rawResponseData): array;
 
@@ -32,14 +31,14 @@ interface NonPaymentResponseMapperInterface
     /**
      * @param array<string, array<string, string>|string> $rawResponseData
      *
-     * @return array<string, mixed>
+     * @return array<string, array<string, string|null>>
      */
     public function mapHistoryResponse(array $rawResponseData): array;
 
     /**
      * @param array<string, array<string, string>|string> $rawResponseData
      *
-     * @return array<string, mixed>
+     * @return array<string, array<string, string|null>>
      */
     public function mapOrderHistoryResponse(array $rawResponseData): array;
 }

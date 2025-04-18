@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -99,12 +98,10 @@ class VakifKatilimPos extends AbstractGateway
 
     /**
      * @inheritDoc
-     *
-     * @return array{gateway: string, method: 'POST'|'GET', inputs: array<string, string>}
      */
-    public function get3DFormData(array $order, string $paymentModel, string $txType, CreditCardInterface $creditCard = null, bool $createWithoutCard = true): array
+    public function get3DFormData(array $order, string $paymentModel, string $txType, CreditCardInterface $creditCard = null): array
     {
-        $this->check3DFormInputs($paymentModel, $txType, $creditCard, $createWithoutCard);
+        $this->check3DFormInputs($paymentModel, $txType, $creditCard);
 
         $this->logger->debug('preparing 3D form data');
 

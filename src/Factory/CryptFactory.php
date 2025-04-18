@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -14,7 +13,6 @@ use SinyorPos\Crypt\GarantiPosCrypt;
 use SinyorPos\Crypt\InterPosCrypt;
 use SinyorPos\Crypt\KuveytPosCrypt;
 use SinyorPos\Crypt\NullCrypt;
-use SinyorPos\Crypt\ParamPosCrypt;
 use SinyorPos\Crypt\PayFlexCPV4Crypt;
 use SinyorPos\Crypt\PayForPosCrypt;
 use SinyorPos\Crypt\PosNetCrypt;
@@ -26,7 +24,6 @@ use SinyorPos\Gateways\EstV3Pos;
 use SinyorPos\Gateways\GarantiPos;
 use SinyorPos\Gateways\InterPos;
 use SinyorPos\Gateways\KuveytPos;
-use SinyorPos\Gateways\ParamPos;
 use SinyorPos\Gateways\PayFlexCPV4Pos;
 use SinyorPos\Gateways\PayForPos;
 use SinyorPos\Gateways\PosNet;
@@ -55,7 +52,6 @@ class CryptFactory
             GarantiPos::class      => GarantiPosCrypt::class,
             InterPos::class        => InterPosCrypt::class,
             KuveytPos::class       => KuveytPosCrypt::class,
-            ParamPos::class        => ParamPosCrypt::class,
             PayFlexCPV4Pos::class  => PayFlexCPV4Crypt::class,
             PayForPos::class       => PayForPosCrypt::class,
             PosNet::class          => PosNetCrypt::class,

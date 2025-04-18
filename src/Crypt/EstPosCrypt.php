@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -14,21 +13,21 @@ class EstPosCrypt extends AbstractCrypt
     /**
      * {@inheritDoc}
      */
-    public function create3DHash(AbstractPosAccount $posAccount, array $formInputs): string
+    public function create3DHash(AbstractPosAccount $posAccount, array $requestData): string
     {
         $hashData = [
-            $formInputs['clientid'],
-            $formInputs['oid'],
-            $formInputs['amount'],
-            $formInputs['okUrl'],
-            $formInputs['failUrl'],
-            $formInputs['islemtipi'],
-            $formInputs['taksit'],
-            $formInputs['rnd'],
+            $posAccount->getClientId(),
+            $requestData['oid'],
+            $requestData['amount'],
+            $requestData['okUrl'],
+            $requestData['failUrl'],
+            $requestData['islemtipi'],
+            $requestData['taksit'],
+            $requestData['rnd'],
             $posAccount->getStoreKey(),
         ];
 
-        $hashStr = \implode(static::HASH_SEPARATOR, $hashData);
+        $hashStr = implode(static::HASH_SEPARATOR, $hashData);
 
         return $this->hashString($hashStr);
     }
@@ -60,7 +59,10 @@ class EstPosCrypt extends AbstractCrypt
     }
 
     /**
-     * @inheritDoc
+     * @param AbstractPosAccount   $posAccount
+     * @param array<string, mixed> $requestData
+     *
+     * @return string
      */
     public function createHash(AbstractPosAccount $posAccount, array $requestData): string
     {

@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -81,7 +80,7 @@ class VakifKatilimPosRequestDataMapper extends AbstractRequestDataMapper
                 'TransactionSecurity' => $this->secureTypeMappings[PosInterface::MODEL_3D_SECURE],
             ];
 
-        $result['HashData'] = $this->crypt->createHash($posAccount, $result);
+        $result['HashData'] = $this->crypt->create3DHash($posAccount, $result);
 
         return $result;
     }
@@ -96,13 +95,13 @@ class VakifKatilimPosRequestDataMapper extends AbstractRequestDataMapper
      * @param string                               $txType
      * @param CreditCardInterface|null             $creditCard
      *
-     * @return array<string, string|int>
+     * @return array<string, string>
      */
     public function create3DEnrollmentCheckRequestData(KuveytPosAccount $kuveytPosAccount, array $order, string $paymentModel, string $txType, ?CreditCardInterface $creditCard = null): array
     {
         $order = $this->preparePaymentOrder($order);
 
-        $requestData = $this->getRequestAccountData($kuveytPosAccount) + [
+        $inputs = $this->getRequestAccountData($kuveytPosAccount) + [
                 'APIVersion'          => self::API_VERSION,
                 'HashPassword'        => $this->crypt->hashString($kuveytPosAccount->getStoreKey() ?? ''),
                 'TransactionSecurity' => $this->secureTypeMappings[$paymentModel],
@@ -110,22 +109,22 @@ class VakifKatilimPosRequestDataMapper extends AbstractRequestDataMapper
                 'Amount'              => $this->formatAmount($order['amount']),
                 'DisplayAmount'       => $this->formatAmount($order['amount']),
                 'FECCurrencyCode'     => $this->mapCurrency($order['currency']),
-                'MerchantOrderId'     => (string) $order['id'],
-                'OkUrl'               => (string) $order['success_url'],
-                'FailUrl'             => (string) $order['fail_url'],
+                'MerchantOrderId'     => $order['id'],
+                'OkUrl'               => $order['success_url'],
+                'FailUrl'             => $order['fail_url'],
             ];
 
         if ($creditCard instanceof CreditCardInterface) {
-            $requestData['CardHolderName']      = (string) $creditCard->getHolderName();
-            $requestData['CardNumber']          = $creditCard->getNumber();
-            $requestData['CardExpireDateYear']  = $creditCard->getExpireYear(self::CREDIT_CARD_EXP_YEAR_FORMAT);
-            $requestData['CardExpireDateMonth'] = $creditCard->getExpireMonth(self::CREDIT_CARD_EXP_MONTH_FORMAT);
-            $requestData['CardCVV2']            = $creditCard->getCvv();
+            $inputs['CardHolderName']      = $creditCard->getHolderName();
+            $inputs['CardNumber']          = $creditCard->getNumber();
+            $inputs['CardExpireDateYear']  = $creditCard->getExpireYear(self::CREDIT_CARD_EXP_YEAR_FORMAT);
+            $inputs['CardExpireDateMonth'] = $creditCard->getExpireMonth(self::CREDIT_CARD_EXP_MONTH_FORMAT);
+            $inputs['CardCVV2']            = $creditCard->getCvv();
         }
 
-        $requestData['HashData'] = $this->crypt->createHash($kuveytPosAccount, $requestData);
+        $inputs['HashData'] = $this->crypt->create3DHash($kuveytPosAccount, $inputs);
 
-        return $requestData;
+        return $inputs;
     }
 
     /**

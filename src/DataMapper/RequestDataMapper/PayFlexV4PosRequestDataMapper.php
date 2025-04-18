@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -65,7 +64,7 @@ class PayFlexV4PosRequestDataMapper extends AbstractRequestDataMapper
      */
     public function create3DPaymentRequestData(AbstractPosAccount $posAccount, array $order, string $txType, array $responseData, ?CreditCardInterface $creditCard = null): array
     {
-        if (!$creditCard instanceof \Mews\Pos\Entity\Card\CreditCardInterface) {
+        if (!$creditCard instanceof \SinyorPos\Entity\Card\CreditCardInterface) {
             throw new \LogicException('Ödemeyi tamamlamak için kart bilgiler zorunlu!');
         }
 
@@ -256,7 +255,9 @@ class PayFlexV4PosRequestDataMapper extends AbstractRequestDataMapper
      */
     public function createCustomQueryRequestData(AbstractPosAccount $posAccount, array $requestData): array
     {
-        return $requestData + $this->getRequestAccountData($posAccount);
+        $requestData += $this->getRequestAccountData($posAccount);
+
+        return $requestData;
     }
 
     /**

@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -7,8 +6,6 @@
 namespace SinyorPos\DataMapper\RequestDataMapper;
 
 use InvalidArgumentException;
-use SinyorPos\Crypt\CryptInterface;
-use SinyorPos\Crypt\PosNetCrypt;
 use SinyorPos\Entity\Account\AbstractPosAccount;
 use SinyorPos\Entity\Account\PosNetAccount;
 use SinyorPos\Entity\Card\CreditCardInterface;
@@ -70,9 +67,6 @@ class PosNetRequestDataMapper extends AbstractRequestDataMapper
         PosInterface::CURRENCY_RUB => 'RU',
     ];
 
-    /** @var PosNetCrypt  */
-    protected CryptInterface $crypt;
-
     /**
      * @param PosNetAccount                                                     $posAccount
      * @param PosInterface::TX_TYPE_PAY_AUTH|PosInterface::TX_TYPE_PAY_PRE_AUTH $txType kullanilmiyor
@@ -83,12 +77,14 @@ class PosNetRequestDataMapper extends AbstractRequestDataMapper
     {
         $order = $this->preparePaymentOrder($order);
 
-        $mappedOrder             = [];
+        $mappedOrder             = $order;
         $mappedOrder['id']       = self::formatOrderId($order['id']);
         $mappedOrder['amount']   = $this->formatAmount($order['amount']);
-        $mappedOrder['currency'] = (string) $this->mapCurrency($order['currency']);
+        $mappedOrder['currency'] = $this->mapCurrency($order['currency']);
 
-        $requestData = [
+        $hash = $this->crypt->create3DHash($posAccount, $mappedOrder);
+
+        return [
             'mid'         => $posAccount->getClientId(),
             'tid'         => $posAccount->getTerminalId(),
             'oosTranData' => [
@@ -96,12 +92,9 @@ class PosNetRequestDataMapper extends AbstractRequestDataMapper
                 'merchantData' => $responseData['MerchantPacket'],
                 'sign'         => $responseData['Sign'],
                 'wpAmount'     => 0,
+                'mac'          => $hash,
             ],
         ];
-
-        $requestData['oosTranData']['mac'] = $this->crypt->createHash($posAccount, $requestData, $mappedOrder);
-
-        return $requestData;
     }
 
     /**
@@ -254,8 +247,6 @@ class PosNetRequestDataMapper extends AbstractRequestDataMapper
      * @param PosNetAccount $posAccount
      * @param array{data1: string, data2: string, sign: string} $extraData
      *
-     * @return array{gateway: string, method: 'POST', inputs: array<string, string>}
-     *
      * {@inheritDoc}
      *
      * @throws InvalidArgumentException
@@ -337,24 +328,23 @@ class PosNetRequestDataMapper extends AbstractRequestDataMapper
     {
         $order = $this->preparePaymentOrder($order);
 
-        $mappedOrder             = [];
+        $mappedOrder             = $order;
         $mappedOrder['id']       = self::formatOrderId($order['id']);
         $mappedOrder['amount']   = $this->formatAmount($order['amount']);
-        $mappedOrder['currency'] = (string) $this->mapCurrency($order['currency']);
+        $mappedOrder['currency'] = $this->mapCurrency($order['currency']);
 
-        $requestData = [
+        $hash = $this->crypt->create3DHash($posAccount, $mappedOrder);
+
+        return [
             'mid'                    => $posAccount->getClientId(),
             'tid'                    => $posAccount->getTerminalId(),
             'oosResolveMerchantData' => [
                 'bankData'     => $responseData['BankPacket'],
                 'merchantData' => $responseData['MerchantPacket'],
                 'sign'         => $responseData['Sign'],
+                'mac'          => $hash,
             ],
         ];
-
-        $requestData['oosResolveMerchantData']['mac'] = $this->crypt->createHash($posAccount, $requestData, $mappedOrder);
-
-        return $requestData;
     }
 
     /**
@@ -364,10 +354,12 @@ class PosNetRequestDataMapper extends AbstractRequestDataMapper
      */
     public function createCustomQueryRequestData(AbstractPosAccount $posAccount, array $requestData): array
     {
-        return $requestData + [
+        $requestData += [
             'mid' => $posAccount->getClientId(),
             'tid' => $posAccount->getTerminalId(),
         ];
+
+        return $requestData;
     }
 
     /**
@@ -410,7 +402,7 @@ class PosNetRequestDataMapper extends AbstractRequestDataMapper
 
         if (\strlen($orderId) > $padLength) {
             throw new InvalidArgumentException(\sprintf(
-                // Banka tarafindan belirlenen kisitlama
+            // Banka tarafindan belirlenen kisitlama
                 "Saglanan siparis ID'nin (%s) uzunlugu %d karakter. Siparis ID %d karakterden uzun olamaz!",
                 $orderId,
                 \strlen($orderId),

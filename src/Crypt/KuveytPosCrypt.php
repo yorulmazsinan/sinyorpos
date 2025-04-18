@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -14,9 +13,27 @@ class KuveytPosCrypt extends AbstractCrypt
     /**
      * {@inheritDoc}
      */
-    public function create3DHash(AbstractPosAccount $posAccount, array $formInputs): string
+    public function create3DHash(AbstractPosAccount $posAccount, array $requestData): string
     {
-        throw new NotImplementedException();
+        if (null === $posAccount->getStoreKey()) {
+            throw new \LogicException('Account storeKey eksik!');
+        }
+
+        $hashedPassword = $this->hashString($posAccount->getStoreKey());
+
+        $hashData = [
+            $posAccount->getClientId(),
+            $requestData['MerchantOrderId'],
+            $requestData['Amount'],
+            $requestData['OkUrl'],
+            $requestData['FailUrl'],
+            $posAccount->getUsername(),
+            $hashedPassword,
+        ];
+
+        $hashStr = \implode(static::HASH_SEPARATOR, $hashData);
+
+        return $this->hashString($hashStr);
     }
 
     /**
@@ -39,16 +56,11 @@ class KuveytPosCrypt extends AbstractCrypt
         $hashedPassword = $this->hashString($posAccount->getStoreKey());
 
         $hashData = [
-            $requestData['MerchantId'],
+            $posAccount->getClientId(),
             // non-payment request may not have MerchantOrderId and Amount fields
             $requestData['MerchantOrderId'] ?? '',
             $requestData['Amount'] ?? '',
-
-            // non 3d payments does not have OkUrl and FailUrl fields
-            $requestData['OkUrl'] ?? '',
-            $requestData['FailUrl'] ?? '',
-
-            $requestData['UserName'],
+            $posAccount->getUsername(),
             $hashedPassword,
         ];
 

@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -115,7 +114,7 @@ class KuveytPosRequestDataMapper extends AbstractRequestDataMapper
      * @param string                               $txType
      * @param CreditCardInterface|null             $creditCard
      *
-     * @return array<string, array<string, string>|int|string>
+     * @return array<string, string>
      *
      * @throws UnsupportedTransactionTypeException
      */
@@ -123,7 +122,7 @@ class KuveytPosRequestDataMapper extends AbstractRequestDataMapper
     {
         $order = $this->preparePaymentOrder($order);
 
-        $requestData = $this->getRequestAccountData($kuveytPosAccount) + [
+        $inputs = $this->getRequestAccountData($kuveytPosAccount) + [
                 'APIVersion'          => self::API_VERSION,
                 'TransactionType'     => $this->mapTxType($txType),
                 'TransactionSecurity' => $this->secureTypeMappings[$paymentModel],
@@ -132,26 +131,26 @@ class KuveytPosRequestDataMapper extends AbstractRequestDataMapper
                 //DisplayAmount: Amount değeri ile aynı olacak şekilde gönderilmelidir.
                 'DisplayAmount'       => $this->formatAmount($order['amount']),
                 'CurrencyCode'        => $this->mapCurrency($order['currency']),
-                'MerchantOrderId'     => (string) $order['id'],
-                'OkUrl'               => (string) $order['success_url'],
-                'FailUrl'             => (string) $order['fail_url'],
+                'MerchantOrderId'     => $order['id'],
+                'OkUrl'               => $order['success_url'],
+                'FailUrl'             => $order['fail_url'],
                 'DeviceData'          => [
-                    'ClientIP' => (string) $order['ip'],
+                    'ClientIP' => $order['ip'],
                 ],
             ];
 
         if ($creditCard instanceof CreditCardInterface) {
-            $requestData['CardHolderName']      = (string) $creditCard->getHolderName();
-            $requestData['CardType']            = $this->cardTypeMapping[$creditCard->getType()];
-            $requestData['CardNumber']          = $creditCard->getNumber();
-            $requestData['CardExpireDateYear']  = $creditCard->getExpireYear(self::CREDIT_CARD_EXP_YEAR_FORMAT);
-            $requestData['CardExpireDateMonth'] = $creditCard->getExpireMonth(self::CREDIT_CARD_EXP_MONTH_FORMAT);
-            $requestData['CardCVV2']            = $creditCard->getCvv();
+            $inputs['CardHolderName']      = $creditCard->getHolderName();
+            $inputs['CardType']            = $this->cardTypeMapping[$creditCard->getType()];
+            $inputs['CardNumber']          = $creditCard->getNumber();
+            $inputs['CardExpireDateYear']  = $creditCard->getExpireYear(self::CREDIT_CARD_EXP_YEAR_FORMAT);
+            $inputs['CardExpireDateMonth'] = $creditCard->getExpireMonth(self::CREDIT_CARD_EXP_MONTH_FORMAT);
+            $inputs['CardCVV2']            = $creditCard->getCvv();
         }
 
-        $requestData['HashData'] = $this->crypt->createHash($kuveytPosAccount, $requestData);
+        $inputs['HashData'] = $this->crypt->create3DHash($kuveytPosAccount, $inputs);
 
-        return $requestData;
+        return $inputs;
     }
 
     /**

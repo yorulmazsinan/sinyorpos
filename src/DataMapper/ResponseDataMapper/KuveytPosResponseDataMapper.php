@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -414,7 +413,7 @@ class KuveytPosResponseDataMapper extends AbstractResponseDataMapper
      *
      * @param array<string, string> $raw3DAuthResponseData
      *
-     * @return array<string, mixed>
+     * @return array<string, string>
      */
     protected function map3DCommonResponseData(array $raw3DAuthResponseData): array
     {
@@ -432,7 +431,7 @@ class KuveytPosResponseDataMapper extends AbstractResponseDataMapper
             $vPosMessage = $raw3DAuthResponseData['VPosMessage'];
             $orderId     = $vPosMessage['MerchantOrderId'];
         } else {
-            $orderId = $raw3DAuthResponseData['MerchantOrderId'] ?? null;
+            $orderId = $raw3DAuthResponseData['MerchantOrderId'];
         }
 
         $default = [
@@ -446,7 +445,6 @@ class KuveytPosResponseDataMapper extends AbstractResponseDataMapper
             'status_detail'        => $this->getStatusDetail($procReturnCode),
             'amount'               => null,
             'currency'             => null,
-            'masked_number'        => null,
             'tx_status'            => null,
             'error_code'           => self::TX_APPROVED !== $status ? $procReturnCode : null,
             'md_error_message'     => self::TX_APPROVED !== $status ? $raw3DAuthResponseData['ResponseMessage'] : null,

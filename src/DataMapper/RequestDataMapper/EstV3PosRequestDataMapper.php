@@ -1,9 +1,7 @@
 <?php
-
 /**
  * @license MIT
  */
-
 namespace SinyorPos\DataMapper\RequestDataMapper;
 
 use SinyorPos\Entity\Account\AbstractPosAccount;

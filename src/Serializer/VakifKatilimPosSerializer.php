@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -19,8 +18,6 @@ use Symfony\Component\Serializer\Serializer;
 
 class VakifKatilimPosSerializer implements SerializerInterface
 {
-    use SerializerUtilTrait;
-
     private Serializer $serializer;
 
     public function __construct()
@@ -67,6 +64,16 @@ class VakifKatilimPosSerializer implements SerializerInterface
 
             throw new \RuntimeException($data, $notEncodableValueException->getCode(), $notEncodableValueException);
         }
+    }
+
+    /**
+     * @param string $str
+     *
+     * @return bool returns true if string is a HTML document.
+     */
+    private function isHTML(string $str): bool
+    {
+        return $str !== \strip_tags($str);
     }
 
     /**

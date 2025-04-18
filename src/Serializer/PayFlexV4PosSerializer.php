@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -15,8 +14,6 @@ use Symfony\Component\Serializer\Serializer;
 
 class PayFlexV4PosSerializer implements SerializerInterface
 {
-    use SerializerUtilTrait;
-
     private Serializer $serializer;
 
     public function __construct()
@@ -77,5 +74,10 @@ class PayFlexV4PosSerializer implements SerializerInterface
 
             throw $notEncodableValueException;
         }
+    }
+
+    private function isHTML(string $str): bool
+    {
+        return $str !== \strip_tags($str);
     }
 }

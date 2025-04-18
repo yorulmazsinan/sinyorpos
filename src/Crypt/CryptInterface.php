@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -29,17 +28,17 @@ interface CryptInterface
     public function check3DHash(AbstractPosAccount $posAccount, array $data): bool;
 
     /**
-     * creates hash for 3D form data
+     * creates hash for 3D secure payments
      *
      * @param AbstractPosAccount    $posAccount
-     * @param array<string, string> $formInputs
+     * @param array<string, string> $requestData
      *
      * @return string
      */
-    public function create3DHash(AbstractPosAccount $posAccount, array $formInputs): string;
+    public function create3DHash(AbstractPosAccount $posAccount, array $requestData): string;
 
     /**
-     * create hash for API requests
+     * create hash for non-3D actions
      *
      * @param AbstractPosAccount   $posAccount
      * @param array<string, mixed> $requestData

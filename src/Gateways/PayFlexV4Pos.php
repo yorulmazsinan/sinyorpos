@@ -1,9 +1,7 @@
 <?php
-
 /**
  * @license MIT
  */
-
 namespace SinyorPos\Gateways;
 
 use Exception;
@@ -46,10 +44,7 @@ class PayFlexV4Pos extends AbstractGateway
             PosInterface::MODEL_3D_SECURE,
             PosInterface::MODEL_NON_SECURE,
         ],
-        PosInterface::TX_TYPE_PAY_PRE_AUTH   => [
-            PosInterface::MODEL_3D_SECURE,
-            PosInterface::MODEL_NON_SECURE,
-        ],
+        PosInterface::TX_TYPE_PAY_PRE_AUTH   => true,
         PosInterface::TX_TYPE_PAY_POST_AUTH  => true,
         PosInterface::TX_TYPE_STATUS         => true,
         PosInterface::TX_TYPE_CANCEL         => true,
@@ -160,10 +155,8 @@ class PayFlexV4Pos extends AbstractGateway
 
     /**
      * {@inheritDoc}
-     *
-     * @return array{gateway: string, method: 'POST'|'GET', inputs: array<string, string>}
      */
-    public function get3DFormData(array $order, string $paymentModel, string $txType, CreditCardInterface $creditCard = null, bool $createWithoutCard = true): array
+    public function get3DFormData(array $order, string $paymentModel, string $txType, CreditCardInterface $creditCard = null): array
     {
         $this->check3DFormInputs($paymentModel, $txType, $creditCard);
 

@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -58,7 +57,8 @@ class PayFlexAccount extends AbstractPosAccount
         string $terminalId,
         int    $merchantType = self::MERCHANT_TYPE_STANDARD,
         string $subMerchantId = null
-    ) {
+    )
+    {
         parent::__construct($bank, $merchantId, '', $password, 'tr');
         $this->terminalId    = $terminalId;
         $this->merchantType  = $merchantType;

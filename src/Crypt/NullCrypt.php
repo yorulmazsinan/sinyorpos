@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -16,7 +15,7 @@ class NullCrypt extends AbstractCrypt
     /**
      * {@inheritDoc}
      */
-    public function create3DHash(AbstractPosAccount $posAccount, array $formInputs): string
+    public function create3DHash(AbstractPosAccount $posAccount, array $requestData): string
     {
         return '';
     }
