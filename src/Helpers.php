@@ -231,7 +231,7 @@ if (!function_exists('receivePayment')) {
 		try {
 			$pos->payment(
 				$paymentModel,
-				$order,
+				$orderInformations,
 				$transactionType,
 				$card
 			);
@@ -248,7 +248,7 @@ if (!function_exists('receivePayment')) {
 
 		return [
 			'pos' => $pos,
-			'order' => $orderInformations,
+			'order' => $order,
 			'userInformations' => $userInformations,
 			'orderInformations' => $orderInformations,
 			'response' => $response,
