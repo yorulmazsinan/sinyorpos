@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -11,7 +10,6 @@ use SinyorPos\Entity\Account\EstPosAccount;
 use SinyorPos\Entity\Account\GarantiPosAccount;
 use SinyorPos\Entity\Account\InterPosAccount;
 use SinyorPos\Entity\Account\KuveytPosAccount;
-use SinyorPos\Entity\Account\ParamPosAccount;
 use SinyorPos\Entity\Account\PayFlexAccount;
 use SinyorPos\Entity\Account\PayForAccount;
 use SinyorPos\Entity\Account\PosNetAccount;
@@ -218,20 +216,6 @@ class AccountFactory
         self::checkParameters($model, $merchantPass);
 
         return new InterPosAccount($bank, $shopCode, $userCode, $userPass, $lang, $merchantPass);
-    }
-
-    /**
-     * @param string $bank
-     * @param int    $clientCode CLIENT_CODE Terminal ID
-     * @param string $username   CLIENT_USERNAME Kullanıcı adı
-     * @param string $password   CLIENT_PASSWORD Şifre
-     * @param string $guid       GUID  Üye İşyeri ait anahtarı
-     *
-     * @return ParamPosAccount
-     */
-    public static function createParamPosAccount(string $bank, int $clientCode, string $username, string $password, string $guid): ParamPosAccount
-    {
-        return new ParamPosAccount($bank, $clientCode, $username, $password, $guid);
     }
 
     /**

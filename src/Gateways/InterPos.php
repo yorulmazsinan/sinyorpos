@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -46,12 +45,7 @@ class InterPos extends AbstractGateway
             PosInterface::MODEL_3D_HOST,
             PosInterface::MODEL_NON_SECURE,
         ],
-        PosInterface::TX_TYPE_PAY_PRE_AUTH   => [
-            PosInterface::MODEL_3D_SECURE,
-            PosInterface::MODEL_3D_PAY,
-            PosInterface::MODEL_3D_HOST,
-            PosInterface::MODEL_NON_SECURE,
-        ],
+        PosInterface::TX_TYPE_PAY_PRE_AUTH   => true,
         PosInterface::TX_TYPE_PAY_POST_AUTH  => true,
         PosInterface::TX_TYPE_STATUS         => true,
         PosInterface::TX_TYPE_CANCEL         => true,
@@ -164,12 +158,10 @@ class InterPos extends AbstractGateway
 
     /**
      * @inheritDoc
-     *
-     * @return array{gateway: string, method: 'POST'|'GET', inputs: array<string, string>}
      */
-    public function get3DFormData(array $order, string $paymentModel, string $txType, CreditCardInterface $creditCard = null, bool $createWithoutCard = true): array
+    public function get3DFormData(array $order, string $paymentModel, string $txType, CreditCardInterface $creditCard = null): array
     {
-        $this->check3DFormInputs($paymentModel, $txType, $creditCard, $createWithoutCard);
+        $this->check3DFormInputs($paymentModel, $txType, $creditCard);
 
         $this->logger->debug('preparing 3D form data');
 
@@ -191,17 +183,11 @@ class InterPos extends AbstractGateway
     protected function send($contents, string $txType, string $paymentModel, string $url): array
     {
         $this->logger->debug('sending request', ['url' => $url]);
-        if (!\is_string($contents)) {
-            throw new InvalidArgumentException(\sprintf('Argument type must be string, %s provided.', \gettype($contents)));
+        if (!\is_array($contents)) {
+            throw new InvalidArgumentException(\sprintf('Argument type must be array, %s provided.', \gettype($contents)));
         }
 
-        $response = $this->client->post($url, [
-            'headers' => [
-                'Content-Type' => 'application/x-www-form-urlencoded',
-            ],
-            'body'    => $contents,
-        ]);
-
+        $response = $this->client->post($url, ['form_params' => $contents]);
         $this->logger->debug('request completed', ['status_code' => $response->getStatusCode()]);
 
         return $this->data = $this->serializer->decode($response->getBody()->getContents(), $txType);

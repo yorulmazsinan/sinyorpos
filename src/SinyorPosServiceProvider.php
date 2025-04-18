@@ -2,8 +2,6 @@
 namespace SinyorPos;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Database\DatabaseManager;
-use Illuminate\Support\Facades\DB;
 
 class SinyorPosServiceProvider extends ServiceProvider
 {

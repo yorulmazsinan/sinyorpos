@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -12,7 +11,7 @@ use SinyorPos\Exceptions\HashMismatchException;
 use SinyorPos\Exceptions\UnsupportedPaymentModelException;
 use SinyorPos\Exceptions\UnsupportedTransactionTypeException;
 use Psr\Http\Client\ClientExceptionInterface;
-use Symfony\Component\HttpFoundation\Request;
+use Illuminate\Http\Request;
 
 /**
  * Interface PosInterface
@@ -119,9 +118,8 @@ interface PosInterface
      * @param string                   $paymentModel
      * @param string                   $txType
      * @param CreditCardInterface|null $creditCard
-     * @param bool                     $createWithoutCard 3D ve 3D_PAY ödemelerde kart bilgisi olmadan 3D formu oluşturulmasına izin verir.
      *
-     * @return non-empty-string|array{gateway: string, method: 'POST'|'GET', inputs: array<string, string>} Banka response'u HTML olduğu durumda string döner.
+     * @return array{gateway: string, method: 'POST'|'GET', inputs: array<string, string>}
      *
      * @throws \RuntimeException when request to the bank to get 3D form data failed
      * @throws ClientExceptionInterface when request to the bank to get 3D form data failed
@@ -130,7 +128,7 @@ interface PosInterface
      * @throws UnsupportedTransactionTypeException
      * @throws ClientExceptionInterface
      */
-    public function get3DFormData(array $order, string $paymentModel, string $txType, ?CreditCardInterface $creditCard = null, bool $createWithoutCard = true);
+    public function get3DFormData(array $order, string $paymentModel, string $txType, ?CreditCardInterface $creditCard = null): array;
 
     /**
      * Regular Payment

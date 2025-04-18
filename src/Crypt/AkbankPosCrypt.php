@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -7,6 +6,7 @@
 namespace SinyorPos\Crypt;
 
 use SinyorPos\Entity\Account\AbstractPosAccount;
+use SinyorPos\Entity\Account\AkbankPosAccount;
 use SinyorPos\Exceptions\NotImplementedException;
 
 class AkbankPosCrypt extends AbstractCrypt
@@ -24,36 +24,37 @@ class AkbankPosCrypt extends AbstractCrypt
     }
 
     /**
+     * @param AkbankPosAccount $posAccount
      * {@inheritDoc}
      */
-    public function create3DHash(AbstractPosAccount $posAccount, array $formInputs): string
+    public function create3DHash(AbstractPosAccount $posAccount, array $requestData): string
     {
         $hashData = [
-            $formInputs['paymentModel'],
-            $formInputs['txnCode'],
-            $formInputs['merchantSafeId'],
-            $formInputs['terminalSafeId'],
-            $formInputs['orderId'],
-            $formInputs['lang'],
-            $formInputs['amount'],
-            $formInputs['ccbRewardAmount'] ?? '',
-            $formInputs['pcbRewardAmount'] ?? '',
-            $formInputs['xcbRewardAmount'] ?? '',
-            $formInputs['currencyCode'],
-            $formInputs['installCount'],
-            $formInputs['okUrl'],
-            $formInputs['failUrl'],
-            $formInputs['emailAddress'] ?? '',
-            $formInputs['subMerchantId'] ?? '',
+            $requestData['paymentModel'],
+            $requestData['txnCode'],
+            $posAccount->getClientId(),
+            $posAccount->getTerminalId(),
+            $requestData['orderId'],
+            $requestData['lang'],
+            $requestData['amount'],
+            $requestData['ccbRewardAmount'] ?? '',
+            $requestData['pcbRewardAmount'] ?? '',
+            $requestData['xcbRewardAmount'] ?? '',
+            $requestData['currencyCode'],
+            $requestData['installCount'],
+            $requestData['okUrl'],
+            $requestData['failUrl'],
+            $requestData['emailAddress'] ?? '',
+            $posAccount->getSubMerchantId() ?? '',
 
             // 3D hosting model does not have credit card information
-            $formInputs['creditCard'] ?? '',
-            $formInputs['expiredDate'] ?? '',
-            $formInputs['cvv'] ?? '',
+            $requestData['creditCard'] ?? '',
+            $requestData['expiredDate'] ?? '',
+            $requestData['cvv'] ?? '',
 
-            $formInputs['randomNumber'],
-            $formInputs['requestDateTime'],
-            $formInputs['b2bIdentityNumber'] ?? '',
+            $requestData['randomNumber'],
+            $requestData['requestDateTime'],
+            $requestData['b2bIdentityNumber'] ?? '',
         ];
 
         $hashStr = \implode(static::HASH_SEPARATOR, $hashData);
@@ -88,7 +89,10 @@ class AkbankPosCrypt extends AbstractCrypt
     }
 
     /**
-     * @inheritDoc
+     * @param AbstractPosAccount   $posAccount
+     * @param array<string, mixed> $requestData
+     *
+     * @return string
      */
     public function createHash(AbstractPosAccount $posAccount, array $requestData): string
     {

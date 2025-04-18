@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -12,6 +11,7 @@ use SinyorPos\Entity\Account\PosNetAccount;
 use SinyorPos\Entity\Card\CreditCardInterface;
 use SinyorPos\Event\Before3DFormHashCalculatedEvent;
 use SinyorPos\Exceptions\NotImplementedException;
+use SinyorPos\Exceptions\UnsupportedTransactionTypeException;
 use SinyorPos\Gateways\PosNetV1Pos;
 use SinyorPos\PosInterface;
 
@@ -366,9 +366,9 @@ class PosNetV1PosRequestDataMapper extends AbstractRequestDataMapper
     /**
      * @param PosNetAccount $posAccount
      *
-     * @return array{gateway: string, method: 'POST', inputs: array<string, string>}
-     *
      * {@inheritDoc}
+     *
+     * @throws UnsupportedTransactionTypeException
      */
     public function create3DFormData(AbstractPosAccount $posAccount, array $order, string $paymentModel, string $txType, string $gatewayURL, ?CreditCardInterface $creditCard = null, $extraData = null): array
     {
@@ -473,7 +473,7 @@ class PosNetV1PosRequestDataMapper extends AbstractRequestDataMapper
 
         if (\strlen($orderId) > $padLength) {
             throw new InvalidArgumentException(\sprintf(
-                // Banka tarafindan belirlenen kisitlama
+            // Banka tarafindan belirlenen kisitlama
                 "Saglanan siparis ID'nin (%s) uzunlugu %d karakter. Siparis ID %d karakterden uzun olamaz!",
                 $orderId,
                 \strlen($orderId),

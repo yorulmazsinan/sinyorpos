@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -12,7 +11,6 @@ use SinyorPos\Serializer\EstPosSerializer;
 use SinyorPos\Serializer\GarantiPosSerializer;
 use SinyorPos\Serializer\InterPosSerializer;
 use SinyorPos\Serializer\KuveytPosSerializer;
-use SinyorPos\Serializer\ParamPosSerializer;
 use SinyorPos\Serializer\PayFlexCPV4PosSerializer;
 use SinyorPos\Serializer\PayFlexV4PosSerializer;
 use SinyorPos\Serializer\PayForPosSerializer;
@@ -34,13 +32,13 @@ class SerializerFactory
      */
     public static function createGatewaySerializer(string $gatewayClass): SerializerInterface
     {
+        /** @var SerializerInterface[] $serializers */
         $serializers = [
             AkbankPosSerializer::class,
             EstPosSerializer::class,
             GarantiPosSerializer::class,
             InterPosSerializer::class,
             KuveytPosSerializer::class,
-            ParamPosSerializer::class,
             PayFlexCPV4PosSerializer::class,
             PayFlexV4PosSerializer::class,
             PayForPosSerializer::class,
@@ -50,7 +48,6 @@ class SerializerFactory
             VakifKatilimPosSerializer::class,
         ];
 
-        /** @var class-string<SerializerInterface> $serializer */
         foreach ($serializers as $serializer) {
             if ($serializer::supports($gatewayClass)) {
                 return new $serializer();

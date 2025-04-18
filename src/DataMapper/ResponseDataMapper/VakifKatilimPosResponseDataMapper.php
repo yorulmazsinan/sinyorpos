@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -427,7 +426,7 @@ class VakifKatilimPosResponseDataMapper extends AbstractResponseDataMapper
      *
      * @param array<string, string> $raw3DAuthResponseData
      *
-     * @return array<string, mixed>
+     * @return array<string, string>
      */
     protected function map3DCommonResponseData(array $raw3DAuthResponseData): array
     {
@@ -438,7 +437,7 @@ class VakifKatilimPosResponseDataMapper extends AbstractResponseDataMapper
             $status = self::TX_APPROVED;
         }
 
-        $orderId = $raw3DAuthResponseData['MerchantOrderId'] ?? null;
+        $orderId = $raw3DAuthResponseData['MerchantOrderId'];
 
         return [
             'order_id'             => $orderId,
@@ -528,7 +527,7 @@ class VakifKatilimPosResponseDataMapper extends AbstractResponseDataMapper
      * @param string               $txType
      * @param array<string, mixed> $order
      *
-     * @return array<string, mixed>
+     * @return array<string, string|float|null>
      */
     private function map3DPaymentPaymentResponse(array $rawPaymentResponseData, string $txType, array $order): array
     {

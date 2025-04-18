@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -358,8 +357,6 @@ class AkbankPosRequestDataMapper extends AbstractRequestDataMapper
     /**
      * @param AkbankPosAccount $posAccount
      *
-     * @return array{gateway: string, method: 'POST', inputs: array<string, string>}
-     *
      * {@inheritDoc}
      */
     public function create3DFormData(AbstractPosAccount $posAccount, array $order, string $paymentModel, string $txType, string $gatewayURL, ?CreditCardInterface $creditCard = null): array
@@ -373,7 +370,7 @@ class AkbankPosRequestDataMapper extends AbstractRequestDataMapper
             'terminalSafeId'  => $posAccount->getTerminalId(),
             'orderId'         => (string) $order['id'],
             'lang'            => $this->getLang($posAccount, $order),
-            'amount'          => $this->formatAmount($order['amount']),
+            'amount'          => (string) $order['amount'],
             'currencyCode'    => (string) $this->mapCurrency((string) $order['currency']),
             'installCount'    => (string) $this->mapInstallment((int) $order['installment']),
             'okUrl'           => (string) $order['success_url'],
@@ -513,16 +510,6 @@ class AkbankPosRequestDataMapper extends AbstractRequestDataMapper
             'recurring_id'     => $order['recurring_id'] ?? null,
             'transaction_time' => $this->createDateTime(),
         ]);
-    }
-
-    /**
-     * @param float $amount
-     *
-     * @return string
-     */
-    protected function formatAmount(float $amount): string
-    {
-        return \number_format($amount, 2, '.', '');
     }
 
     /**

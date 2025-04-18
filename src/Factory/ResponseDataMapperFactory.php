@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -13,7 +12,6 @@ use SinyorPos\DataMapper\ResponseDataMapper\EstPosResponseDataMapper;
 use SinyorPos\DataMapper\ResponseDataMapper\GarantiPosResponseDataMapper;
 use SinyorPos\DataMapper\ResponseDataMapper\InterPosResponseDataMapper;
 use SinyorPos\DataMapper\ResponseDataMapper\KuveytPosResponseDataMapper;
-use SinyorPos\DataMapper\ResponseDataMapper\ParamPosResponseDataMapper;
 use SinyorPos\DataMapper\ResponseDataMapper\PayFlexCPV4PosResponseDataMapper;
 use SinyorPos\DataMapper\ResponseDataMapper\PayFlexV4PosResponseDataMapper;
 use SinyorPos\DataMapper\ResponseDataMapper\PayForPosResponseDataMapper;
@@ -28,7 +26,6 @@ use SinyorPos\Gateways\EstV3Pos;
 use SinyorPos\Gateways\GarantiPos;
 use SinyorPos\Gateways\InterPos;
 use SinyorPos\Gateways\KuveytPos;
-use SinyorPos\Gateways\ParamPos;
 use SinyorPos\Gateways\PayFlexCPV4Pos;
 use SinyorPos\Gateways\PayFlexV4Pos;
 use SinyorPos\Gateways\PayForPos;
@@ -59,7 +56,6 @@ class ResponseDataMapperFactory
             GarantiPos::class      => GarantiPosResponseDataMapper::class,
             InterPos::class        => InterPosResponseDataMapper::class,
             KuveytPos::class       => KuveytPosResponseDataMapper::class,
-            ParamPos::class        => ParamPosResponseDataMapper::class,
             PayFlexCPV4Pos::class  => PayFlexCPV4PosResponseDataMapper::class,
             PayFlexV4Pos::class    => PayFlexV4PosResponseDataMapper::class,
             PayForPos::class       => PayForPosResponseDataMapper::class,

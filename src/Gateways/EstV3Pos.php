@@ -1,9 +1,7 @@
 <?php
-
 /**
  * @license MIT
  */
-
 namespace SinyorPos\Gateways;
 
 /**

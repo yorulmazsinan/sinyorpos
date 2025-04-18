@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -7,7 +6,6 @@
 namespace SinyorPos\Crypt;
 
 use SinyorPos\Entity\Account\AbstractPosAccount;
-use SinyorPos\Exceptions\NotImplementedException;
 
 class ToslaPosCrypt extends AbstractCrypt
 {
@@ -17,9 +15,19 @@ class ToslaPosCrypt extends AbstractCrypt
     /**
      * {@inheritDoc}
      */
-    public function create3DHash(AbstractPosAccount $posAccount, array $formInputs): string
+    public function create3DHash(AbstractPosAccount $posAccount, array $requestData): string
     {
-        throw new NotImplementedException();
+        $hashData = [
+            $posAccount->getStoreKey(),
+            $posAccount->getClientId(),
+            $posAccount->getUsername(),
+            $requestData['rnd'],
+            $requestData['timeSpan'],
+        ];
+
+        $hashStr = \implode(static::HASH_SEPARATOR, $hashData);
+
+        return $this->hashString($hashStr);
     }
 
     /**
@@ -52,21 +60,14 @@ class ToslaPosCrypt extends AbstractCrypt
     }
 
     /**
-     * @inheritDoc
+     * @param AbstractPosAccount   $posAccount
+     * @param array<string, mixed> $requestData
+     *
+     * @return string
      */
     public function createHash(AbstractPosAccount $posAccount, array $requestData): string
     {
-        $hashData = [
-            $posAccount->getStoreKey(),
-            $requestData['clientId'],
-            $requestData['apiUser'],
-            $requestData['rnd'],
-            $requestData['timeSpan'],
-        ];
-
-        $hashStr = \implode(static::HASH_SEPARATOR, $hashData);
-
-        return $this->hashString($hashStr);
+        return $this->create3DHash($posAccount, $requestData);
     }
 
     /**

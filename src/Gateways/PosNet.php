@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @license MIT
  */
@@ -45,10 +44,7 @@ class PosNet extends AbstractGateway
             PosInterface::MODEL_3D_SECURE,
             PosInterface::MODEL_NON_SECURE,
         ],
-        PosInterface::TX_TYPE_PAY_PRE_AUTH   => [
-            PosInterface::MODEL_3D_SECURE,
-            PosInterface::MODEL_NON_SECURE,
-        ],
+        PosInterface::TX_TYPE_PAY_PRE_AUTH   => true,
         PosInterface::TX_TYPE_PAY_POST_AUTH  => true,
         PosInterface::TX_TYPE_STATUS         => true,
         PosInterface::TX_TYPE_CANCEL         => true,
@@ -167,10 +163,8 @@ class PosNet extends AbstractGateway
 
     /**
      * @inheritDoc
-     *
-     * @return array{gateway: string, method: 'POST'|'GET', inputs: array<string, string>}
      */
-    public function get3DFormData(array $order, string $paymentModel, string $txType, CreditCardInterface $creditCard = null, bool $createWithoutCard = true): array
+    public function get3DFormData(array $order, string $paymentModel, string $txType, CreditCardInterface $creditCard = null): array
     {
         $this->check3DFormInputs($paymentModel, $txType, $creditCard);
 
@@ -183,9 +177,6 @@ class PosNet extends AbstractGateway
 
         $this->logger->debug('preparing 3D form data');
 
-        /** @var array{data1: string, data2: string, sign: string} $responseData */
-        $responseData = $data['oosRequestDataResponse'];
-
         return $this->requestDataMapper->create3DFormData(
             $this->account,
             $order,
@@ -193,7 +184,7 @@ class PosNet extends AbstractGateway
             $txType,
             $this->get3DGatewayURL($paymentModel),
             null,
-            $responseData
+            $data['oosRequestDataResponse']
         );
     }
 
