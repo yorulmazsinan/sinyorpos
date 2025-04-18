@@ -212,8 +212,9 @@ if (!function_exists('receivePayment')) {
 		} else {
 			$user = null;
 		}
-
+		
 		$pos = getGateway(createPosAccount($order->payment_bank, 'production')); // PosGateway nesnesini alıyoruz.
+		
 		if ($userInformations == true) {
 			$userInformations = json_decode($order->buying_informations, true)['user']; // Kullanıcı bilgilerini alıyoruz.
 		} else {
@@ -225,12 +226,17 @@ if (!function_exists('receivePayment')) {
 		
 		// getModel yerine doğrudan 3D_SECURE kullanılıyor
 		$paymentModel = PosInterface::MODEL_3D_SECURE;
-		$txType = PosInterface::TX_TYPE_PAY_AUTH;
+		$transactionType = PosInterface::TX_TYPE_PAY_AUTH;
 
 		try {
-			doPayment($pos, $paymentModel, $txType, $orderInformations, $card);
+			$pos->payment(
+				$paymentModel,
+				$order,
+				$transactionType,
+				$card
+			);
 		} catch (Exception $e) {
-			Log::error('receivePayment: doPayment sırasında hata', [
+			Log::error('receivePayment: payment sırasında hata.', [
 				'order_id' => $orderId,
 				'error' => $e->getMessage()
 			]);
@@ -238,47 +244,15 @@ if (!function_exists('receivePayment')) {
 		}
 
 		$response = $pos->getResponse(); // Ödeme işlemi sonucunu alıyoruz.
-		
-		// Yanıt işlenmeden önce güvenlik kontrolleri yapılıyor
-		$processedResponse = (array) $response;
-		
-		// Yapıkredi için güvenlik kontrolü
 		$yapikrediResponse = json_decode(json_encode([$response][0]), true);
-		
-		// Hata ile karşılaşılan procreturncode ve buna benzer alanlar için ek kontroller
-		// Boş bir dizi ile başlatıp, sonra özellikleri güvenli bir şekilde ekleyeceğiz
-		$safeResponse = [];
-		
-		// Yanıttaki tüm anahtarları güvenli bir şekilde işle
-		foreach ($processedResponse as $key => $value) {
-			$safeResponse[$key] = $value;
-		}
-		
-		// Yapıkredi yanıtını güvenli hale getir
-		$safeYapikrediResponse = [];
-		if (is_array($yapikrediResponse)) {
-			foreach ($yapikrediResponse as $key => $value) {
-				$safeYapikrediResponse[$key] = $value;
-			}
-		}
-		
-		// Özellikle procreturncode anahtarı için kontrol
-		if (!isset($safeResponse['procreturncode']) && !empty($safeResponse)) {
-			// procreturncode yoksa ve yanıt boş değilse, varsayılan hata kodu ayarla
-			$safeResponse['procreturncode'] = 'ERROR';
-			Log::warning('Ödeme yanıtında procreturncode bulunamadı', [
-				'order_id' => $orderId, 
-				'response' => $safeResponse
-			]);
-		}
 
 		return [
 			'pos' => $pos,
 			'order' => $order,
 			'userInformations' => $userInformations,
 			'orderInformations' => $orderInformations,
-			'response' => $safeResponse,
-			'yapikrediResponse' => $safeYapikrediResponse,
+			'response' => $response,
+			'yapikrediResponse' => $yapikrediResponse,
 		];
 	}
 }
