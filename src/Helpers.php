@@ -248,7 +248,7 @@ if (!function_exists('receivePayment')) {
 
 		return [
 			'pos' => $pos,
-			'order' => $order,
+			'order' => $orderInformations,
 			'userInformations' => $userInformations,
 			'orderInformations' => $orderInformations,
 			'response' => $response,
