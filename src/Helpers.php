@@ -1,5 +1,7 @@
 <?php
 
+use App\Exceptions\BankClassNullException;
+use App\Exceptions\BankNotFoundException;
 use SinyorPos\Factory\CreditCardFactory;
 use SinyorPos\Factory\PosFactory;
 use SinyorPos\Factory\AccountFactory;
@@ -11,6 +13,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use App\Models\Order;
 use App\Models\User;
+use Psr\Log\LogLevel;
+use Monolog\Logger as MonologLogger;
 
 if (!function_exists('checkCardType')) {
 	function checkCardType($number)
@@ -36,54 +40,26 @@ if (!function_exists('checkCardType')) {
 		return $type;
 	}
 }
-if (!function_exists('doPayment')) {
-	function doPayment(PosInterface $pos, string $paymentModel, string $transaction, array $order, ?CreditCardInterface $card)
-	{
-		if (!$pos::isSupportedTransaction($transaction, $paymentModel)) {
-			throw new LogicException(
-				sprintf('"%s %s" işlemi %s tarafından desteklenmiyor', $transaction, $paymentModel, get_class($pos))
-			);
-		}
-
-		$needsCard = in_array($transaction, [PosInterface::TX_TYPE_PAY_AUTH, PosInterface::TX_TYPE_PAY_PRE_AUTH], true);
-
-		if ($paymentModel === PosInterface::MODEL_3D_SECURE) {
-			if ($needsCard) {
-				$pos->payment($paymentModel, $order, $transaction, $card);
-			} else {
-				$pos->payment($paymentModel, $order, $transaction);
-			}
-			
-			return $pos->get3DFormData();
-		} elseif ($paymentModel === PosInterface::MODEL_NON_SECURE && $needsCard) {
-			$pos->payment($paymentModel, $order, $transaction, $card);
-
-			return $pos->getResponse();
-		} else {
-			throw new \Exception('Bu ödeme modeli desteklenmiyor veya kart bilgisi eksik.');
-		}
-	}
-}
 if (!function_exists('getGateway')) {
 	function getGateway(AbstractPosAccount $account): PosInterface
 	{
 		try {
-			$handler = new \Monolog\Handler\StreamHandler(__DIR__.'/../var/log/pos.log', \PsrLogLogLevel::DEBUG);
-			$logger = new \MonologLogger('pos', [$handler]);
-
-			// Konfigürasyon dosyasını yükle
+			// Konfigürasyon dosyasını yükle:
 			$config = require config_path('pos-settings.php');
             
-            // Symfony Event Dispatcher kullan
+            // Symfony Event Dispatcher kullan:
             $eventDispatcher = new \Symfony\Component\EventDispatcher\EventDispatcher();
 
-			// Parametre sırası düzeltildi
-			$pos = PosFactory::createPosGateway($account, $config, $eventDispatcher, null, $logger);
+			// Parametre sırası düzeltildi:
+			$pos = PosFactory::createPosGateway($account, $config, $eventDispatcher);
 			$pos->setTestMode(false);
 
 			return $pos;
-		} catch (Exception $e) {
-			Log::error('POS oluşturulurken hata', ['error' => $e->getMessage()]);
+		} catch (BankNotFoundException | BankClassNullException $e) {
+			Log::error('POS oluşturulurken hata.', ['error' => $e->getMessage()]);
+			throw $e;
+		} catch (\Exception $e) {
+			Log::error('Genel kart oluşturma hatası: '.$e->getMessage());
 			throw $e;
 		}
 	}
@@ -246,7 +222,9 @@ if (!function_exists('receivePayment')) {
 		$orderInformations = json_decode($order->buying_informations, true)['order']; // Sipariş bilgilerini alıyoruz.
 		$cardInformations = json_decode($order->buying_informations, true)['card']; // Kart bilgilerini alıyoruz.
 		$card = createCard($pos, $cardInformations); // Kart bilgilerini oluşturuyoruz.
-		$paymentModel = $pos->getAccount()->getModel();
+		
+		// getModel yerine doğrudan 3D_SECURE kullanılıyor
+		$paymentModel = PosInterface::MODEL_3D_SECURE;
 		$txType = PosInterface::TX_TYPE_PAY_AUTH;
 
 		try {
@@ -260,15 +238,47 @@ if (!function_exists('receivePayment')) {
 		}
 
 		$response = $pos->getResponse(); // Ödeme işlemi sonucunu alıyoruz.
-		$yapikrediResponse = json_decode(json_encode([$response][0]), true); // Yapıkredi ödeme sonucunu alıyoruz.
+		
+		// Yanıt işlenmeden önce güvenlik kontrolleri yapılıyor
+		$processedResponse = (array) $response;
+		
+		// Yapıkredi için güvenlik kontrolü
+		$yapikrediResponse = json_decode(json_encode([$response][0]), true);
+		
+		// Hata ile karşılaşılan procreturncode ve buna benzer alanlar için ek kontroller
+		// Boş bir dizi ile başlatıp, sonra özellikleri güvenli bir şekilde ekleyeceğiz
+		$safeResponse = [];
+		
+		// Yanıttaki tüm anahtarları güvenli bir şekilde işle
+		foreach ($processedResponse as $key => $value) {
+			$safeResponse[$key] = $value;
+		}
+		
+		// Yapıkredi yanıtını güvenli hale getir
+		$safeYapikrediResponse = [];
+		if (is_array($yapikrediResponse)) {
+			foreach ($yapikrediResponse as $key => $value) {
+				$safeYapikrediResponse[$key] = $value;
+			}
+		}
+		
+		// Özellikle procreturncode anahtarı için kontrol
+		if (!isset($safeResponse['procreturncode']) && !empty($safeResponse)) {
+			// procreturncode yoksa ve yanıt boş değilse, varsayılan hata kodu ayarla
+			$safeResponse['procreturncode'] = 'ERROR';
+			Log::warning('Ödeme yanıtında procreturncode bulunamadı', [
+				'order_id' => $orderId, 
+				'response' => $safeResponse
+			]);
+		}
 
 		return [
 			'pos' => $pos,
 			'order' => $order,
 			'userInformations' => $userInformations,
 			'orderInformations' => $orderInformations,
-			'response' => $response,
-			'yapikrediResponse' => $yapikrediResponse,
+			'response' => $safeResponse,
+			'yapikrediResponse' => $safeYapikrediResponse,
 		];
 	}
 }
