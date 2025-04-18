@@ -1,16 +1,16 @@
 <?php
 
-use Illuminate\Support\Facades\Auth;
 use SinyorPos\Factory\CreditCardFactory;
 use SinyorPos\Factory\PosFactory;
 use SinyorPos\Factory\AccountFactory;
-use SinyorPos\Gateways\AbstractGateway;
 use SinyorPos\PosInterface;
 use SinyorPos\Entity\Card\AbstractCreditCard;
 use SinyorPos\Entity\Account\AbstractPosAccount;
+use SinyorPos\Entity\Card\CreditCardInterface;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use App\Models\Order;
 use App\Models\User;
-use App\Models\SiteSetting;
 
 if (!function_exists('checkCardType')) {
 	function checkCardType($number)
@@ -40,26 +40,27 @@ if (!function_exists('doPayment')) {
 	function doPayment(PosInterface $pos, string $paymentModel, string $transaction, array $order, ?CreditCardInterface $card)
 	{
 		if (!$pos::isSupportedTransaction($transaction, $paymentModel)) {
-			throw new \LogicException(
+			throw new LogicException(
 				sprintf('"%s %s" işlemi %s tarafından desteklenmiyor', $transaction, $paymentModel, get_class($pos))
 			);
 		}
-		if (get_class($pos) === \SinyorPos\Gateways\PayFlexV4Pos::class
-			&& in_array($transaction, [PosInterface::TX_TYPE_PAY_AUTH, PosInterface::TX_TYPE_PAY_PRE_AUTH], true)
-			&& PosInterface::MODEL_3D_SECURE === $paymentModel
-		) {
-			/**
-			 * diger banklaradan farkli olarak 3d islemler icin de PayFlex bu asamada kredi kart bilgileri istiyor
-			 */
+
+		$needsCard = in_array($transaction, [PosInterface::TX_TYPE_PAY_AUTH, PosInterface::TX_TYPE_PAY_PRE_AUTH], true);
+
+		if ($paymentModel === PosInterface::MODEL_3D_SECURE) {
+			if ($needsCard) {
+				$pos->payment($paymentModel, $order, $transaction, $card);
+			} else {
+				$pos->payment($paymentModel, $order, $transaction);
+			}
+			
+			return $pos->get3DFormData();
+		} elseif ($paymentModel === PosInterface::MODEL_NON_SECURE && $needsCard) {
 			$pos->payment($paymentModel, $order, $transaction, $card);
-	
-		} elseif ($paymentModel === PosInterface::MODEL_NON_SECURE
-			&& in_array($transaction, [PosInterface::TX_TYPE_PAY_AUTH, PosInterface::TX_TYPE_PAY_PRE_AUTH], true)
-		) {
-			// bu asamada $card regular/non secure odemede lazim.
-			$pos->payment($paymentModel, $order, $transaction, $card);
+
+			return $pos->getResponse();
 		} else {
-			$pos->payment($paymentModel, $order, $transaction);
+			throw new \Exception('Bu ödeme modeli desteklenmiyor veya kart bilgisi eksik.');
 		}
 	}
 }
@@ -67,8 +68,8 @@ if (!function_exists('getGateway')) {
 	function getGateway(AbstractPosAccount $account): PosInterface
 	{
 		try {
-			$handler = new \Monolog\Handler\StreamHandler(__DIR__.'/../var/log/pos.log', \Psr\Log\LogLevel::DEBUG);
-			$logger = new \Monolog\Logger('pos', [$handler]);
+			$handler = new \Monolog\Handler\StreamHandler(__DIR__.'/../var/log/pos.log', \PsrLogLogLevel::DEBUG);
+			$logger = new \MonologLogger('pos', [$handler]);
 
 			// Konfigürasyon dosyasını yükle
 			$config = require config_path('pos-settings.php');
@@ -82,7 +83,8 @@ if (!function_exists('getGateway')) {
 
 			return $pos;
 		} catch (Exception $e) {
-			dd($e);
+			Log::error('POS oluşturulurken hata', ['error' => $e->getMessage()]);
+			throw $e;
 		}
 	}
 }
@@ -100,13 +102,14 @@ if (!function_exists('createCard')) {
 				$card['type'] ?? null
 			);
 		} catch (\SinyorPos\Exceptions\CardTypeRequiredException $e) {
-			// bu gateway için kart tipi zorunlu
-			dd($e);
+			Log::error('Kart tipi zorunlu: '.$e->getMessage());
+			throw $e;
 		} catch (\SinyorPos\Exceptions\CardTypeNotSupportedException $e) {
-			// sağlanan kart tipi bu gateway tarafından desteklenmiyor
-			dd($e);
+			Log::error('Kart tipi desteklenmiyor: '.$e->getMessage());
+			throw $e;
 		} catch (\Exception $e) {
-			dd($e);
+			Log::error('Genel kart oluşturma hatası: '.$e->getMessage());
+			throw $e;
 		}
 	}
 }
@@ -177,6 +180,8 @@ if (!function_exists('createPosAccount')) {
 if (!function_exists('paymentReadiness')) {
 	function paymentReadiness($getOrder = false, $getBankSession = false)
 	{
+		$bank = null;
+
 		if (Auth::check()) { // Eğer kullanıcı giriş yapmışsa, kullanıcı bilgilerini alıyoruz.
 			$user = User::firstWhere('id', Auth::id()) ?? null;
 		} elseif(session('buyer_id')) { // Eğer kullanıcı giriş yapmamışsa, kullanıcı bilgilerini "buyer_id"den alıp giriş yaptırıyoruz.
@@ -209,11 +214,7 @@ if (!function_exists('paymentReadiness')) {
 			}
 		}
 
-		if ($bank == 'yapikredi') {
-			$currency = 'TL';
-		} else {
-			$currency = 'TRY';
-		}
+		$currency = ($bank ?? siteSettings('virtualpos')) == 'yapikredi' ? 'TL' : 'TRY';
 
 		return [
 			'user' => $user,
@@ -248,11 +249,10 @@ if (!function_exists('receivePayment')) {
 		$paymentModel = $pos->getAccount()->getModel();
 		$txType = PosInterface::TX_TYPE_PAY_AUTH;
 
-
 		try {
 			doPayment($pos, $paymentModel, $txType, $orderInformations, $card);
 		} catch (Exception $e) {
-			\Illuminate\Support\Facades\Log::error('receivePayment: doPayment sırasında hata', [
+			Log::error('receivePayment: doPayment sırasında hata', [
 				'order_id' => $orderId,
 				'error' => $e->getMessage()
 			]);
